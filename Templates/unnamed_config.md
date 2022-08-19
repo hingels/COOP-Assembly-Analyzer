@@ -1,0 +1,105 @@
+- HOW TO USE
+    - Anything in all capital letters must not be changed.
+    - Names of settings in SETTINGS must not be changed, but their values can change.
+    - If "[ ]" appears to the left of a setting, type "x" into it ("[x]") to activate it.
+    - If "= [ ]" appears to the right of a setting, type a value into it ("= [value]") to set the setting's value.
+
+- SETTINGS
+    - Iterations = [50]
+    - Name for group, singular = [peptide concentration]
+    - Name for groups, plural = [peptide concentrations]
+    - Name for category, singular = [BSA concentration]
+    - Name for categories, plural = [BSA concentrations]
+    - [ ] Save candidate figures
+    - [x] Save "All fits" figures
+    - [x] Save "Averaged samples" figures
+    - [ ] Save "Combined samples" figures
+    - Selected experiment = [experiment1]
+    - Reports:
+        - 1%-anchored logistic
+            - Curve = [onepercent_anchored_logistic]
+            - Variables to report = [Duration of lag phase (1% to 5%); Maximum rate (at 50% time); 1% time; 5% time; 10% time; 50% time; 90% time; 95% time; 99% time; Value at 90% time; Value at time of last data point]
+            - Other information = [Growth-lag ratio]
+        - Normalized exponential
+            - Curve = [normalized_exponential]
+            - Variables to report = [Maximum rate (at start time); Start time; 1% time; 5% time; 10% time; 50% time; 90% time; 95% time; 99% time; Value at 90% time; Value at time of last data point]
+            - Other information = [ ]
+    - Figures:
+        - Name = [ThT fluorescence]
+        - Independent variable axis = [Time (min)]
+        - Dependent variable axis = [Intensity]
+        - Font = [Arial]
+    - Figure zoom settings:
+        - Zoom magnifications:
+            - 1
+            - 6
+            - 18
+        - [x] Autozoom
+    - Output file naming:
+        - Notes:
+            - For dates, use {yy}, {mm}, and {dd} to represent two-digit year, month, and day, respectively. Use {yyyy} to represent four-digit year.
+            - For times, use {hour}, {min}, and {XM} to represent hour, min, and AM or PM in 12-hour style. For 24-hour style, use {HOUR} for hours and {min} for minutes.
+        - File name = [ThT_PROCESSED{yy}{mm}{dd}_{HOUR}{min}o'clock]
+    - Column naming:
+        - [ ] Letters and numbers
+            - Examples:
+                - A12, J2-10, M1-P4
+                - If "maximum number" is 3, A1-C2 will be interpreted as A1, A2, A3, B1, B2, B3, C1, C2.
+            - Maximum number = [12]
+        - [x] Unnamed
+            - Notes:
+                - With this option, samples (data columns) are automatically given numbered names.
+                - "n" is the number of samples per category.
+                - If an independent variable column name is specified, the numbered names begin after that column.
+                    - Anything before it will be skipped.
+                - Examples:
+                    - If independent variable column is Column 5 and n = 3:
+                        - Category 1:
+                            - Sample 1: column 6
+                            - Sample 2: column 7
+                            - Sample 3: column 8
+            - n = [6]
+        - (Optional) Independent variable column name = [time (min)]
+            - Notes:
+                - If left unspecified, the first column will be used.
+    - Settings for Excel (.xlsx) files:
+        - [ ] Join sheets vertically
+        - [x] Use sheet names as groups
+- EXPERIMENTS
+    - Notes:
+        - All experiments will get their data from the same input file.
+        - Under each experiment, list its groups. Under each group, list its categories, each of which is given one or more samples as specified in SETTINGS.
+        - If "Unnamed" is checked, list only one group.
+        - If "Use sheet names as groups" is checked, list only one group; all groups will share its categories.
+        - Category configuration:
+            - To change a setting from its default for a specific category, add settings after the category in the format setting=value; or if using "Use sheet names as groups," use the format setting=[group1=value1; group2=value2 ... ]. Possible settings include:
+                - end
+                    - Ignore data after a specified independent variable value.
+                    - Possible values: any real number
+                    - Default: 120
+                - subtract_initial
+                    - For each sample, subtract the first point's y-axis value from all points.
+                    - Possible values: True or False
+                    - Default: False
+                - subtract_min
+                    - For each sample, subtract the minimum point's y-axis value from all points.
+                    - Possible values: True or False
+                    - Default: True
+                - combine_samples
+                    - In addition to fitting each sample independently, fit a new sample created by combining the others.
+                    - Possible values: True or False
+                    - Default: True
+                - max_as_max
+                    - For each sample, use the maximum point's y-axis value as the fit's maximum possible y-axis value.
+                    - Possible values: True or False
+                    - Default: False
+            - Examples:
+                - Category 1 end=90
+                - If "Use sheet names as groups" is checked:
+                    - Category 1 end=[group1=90; group2=110]
+    - experiment1
+        - Categories
+            - 0.1 µM BSA
+            - 0.2 µM BSA
+            - 0.4 µM BSA
+            - 0.0 µM BSA

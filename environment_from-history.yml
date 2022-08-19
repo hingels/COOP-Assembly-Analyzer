@@ -1,0 +1,12 @@
+name: ThT_analysis
+channels:
+  - defaults
+dependencies:
+  - numpy
+  - scipy
+  - matplotlib
+  - pandas
+  - sympy
+  - openpyxl
+  - xlsxwriter
+prefix: /Users/henryingels/opt/miniconda3/envs/ThT_analysis
