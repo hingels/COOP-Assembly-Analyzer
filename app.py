@@ -219,9 +219,10 @@ class Fits(list):
                             'Value at 95% time': logistic(calculations['t_95%'], **logistic_kwargs),
                             'Value at 99% time': logistic(calculations['t_99%'], **logistic_kwargs),
                             'Value at lag time': logistic(calculations['lagtime%'], **logistic_kwargs),
-                            'Value at time of last data point': logistic(last_point[1], **logistic_kwargs) }) }),
+                            'Value at time of last data point': logistic(last_point[0], **logistic_kwargs),
+                            'Last data point value': last_point[1] }) }),
                     logistic, logistic_kwargs )
-            if curve == onepercent_anchored_logistic:
+            elif curve == onepercent_anchored_logistic:
                 k_NL = curve_kwargs['k_NL']
                 A = curve_kwargs['A']
                 k_L = k_NL / A
@@ -249,9 +250,10 @@ class Fits(list):
                             'Value at 90% time': logistic(calculations['t_90%'], **logistic_kwargs),
                             'Value at 95% time': logistic(calculations['t_95%'], **logistic_kwargs),
                             'Value at 99% time': logistic(calculations['t_99%'], **logistic_kwargs),
-                            'Value at time of last data point': logistic(last_point[1], **logistic_kwargs) }) }),
+                            'Value at time of last data point': logistic(last_point[0], **logistic_kwargs),
+                            'Last data point value': last_point[1] }) }),
                     logistic, logistic_kwargs)
-            if curve == normalized_exponential:
+            elif curve == normalized_exponential:
                 t0 = curve_kwargs['t0']
                 A = curve_kwargs['A']
                 k_NE = curve_kwargs['k_NE']
@@ -279,9 +281,10 @@ class Fits(list):
                             'Value at 90% time': exponential(calculations['t_90%'], **exponential_kwargs),
                             'Value at 95% time': exponential(calculations['t_95%'], **exponential_kwargs),
                             'Value at 99% time': exponential(calculations['t_99%'], **exponential_kwargs),
-                            'Value at time of last data point': exponential(last_point[1], **exponential_kwargs) }) }),
+                            'Value at time of last data point': exponential(last_point[0], **exponential_kwargs),
+                            'Last data point value': last_point[1] }) }),
                     exponential, exponential_kwargs)
-            if curve == KWW_scaled:
+            elif curve == KWW_scaled:
                 descaled_args = KWW_descaler(**curve_kwargs)
                 descaled_t_inflection = KWW_inflection(*descaled_args)
                 descaled_timeinfo = KWW_timeinfo(*descaled_args, descaled_t_inflection)

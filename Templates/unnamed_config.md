@@ -18,11 +18,11 @@
     - Reports:
         - 1%-anchored logistic
             - Curve = [onepercent_anchored_logistic]
-            - Variables to report = [Duration of lag phase (1% to 5%); Maximum rate (at 50% time); 1% time; 5% time; 10% time; 50% time; 90% time; 95% time; 99% time; Value at 90% time; Value at time of last data point]
+            - Variables to report = [Duration of lag phase (1% to 5%); Maximum rate (at 50% time); 1% time; 5% time; 10% time; 50% time; 90% time; 95% time; 99% time; Value at 90% time; Last data point value]
             - Other information = [Growth-lag ratio]
         - Normalized exponential
             - Curve = [normalized_exponential]
-            - Variables to report = [Maximum rate (at start time); Start time; 1% time; 5% time; 10% time; 50% time; 90% time; 95% time; 99% time; Value at 90% time; Value at time of last data point]
+            - Variables to report = [Maximum rate (at start time); Start time; 1% time; 5% time; 10% time; 50% time; 90% time; 95% time; 99% time; Value at 90% time; Last data point value]
             - Other information = [ ]
     - Figures:
         - Name = [ThT fluorescence]
