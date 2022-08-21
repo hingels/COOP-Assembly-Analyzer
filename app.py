@@ -6,6 +6,7 @@ from collections import OrderedDict as OD
 import datetime
 from functools import partial, reduce
 from inspect import Signature, signature
+import sys
 import os
 import shutil
 import re
@@ -963,10 +964,15 @@ class CategoryConfig():
 
 
 def main():
-    root = os.path.dirname(__file__)
-    input_path = f'{root}/Input'
-    data_path, config_path = get_files(input_path, ('csv', 'xlsx')), get_files(input_path, 'md')
-
+    def setup_files(root):
+        input_path = f'{root}/Input'
+        return input_path, get_files(input_path, ('csv', 'xlsx')), get_files(input_path, 'md')
+    try:
+        root = os.path.dirname(sys.executable)
+        input_path, data_path, config_path = setup_files(root)
+    except:
+        root = os.path.dirname(os.path.abspath(__file__))
+        input_path, data_path, config_path = setup_files(root)
     reader = ConfigReader(config_path)
     assert reader.iterations.isdigit()
     iterations = int(reader.iterations)
