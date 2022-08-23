@@ -26,8 +26,15 @@ class ConfigReader(OD):
         'Selected experiment': 'selected_experiment' }
     
     lists = {
+        'Category configuration defaults:': 'category_config_defaults',
         'Reports:': 'reports',
         'Figure zoom settings:': 'zoom_settings' }
+    category_config_keywords = {
+        'end': 'end',
+        'subtract_initial': 'subtract_initial',
+        'subtract_min': 'subtract_min',
+        'combine_samples': 'combine_samples',
+        'max_as_max': 'max_as_max' }
     report_keywords = {
         'Curve': 'curve',
         'Variables to report': 'variable_names',
@@ -328,7 +335,15 @@ class ConfigReader(OD):
         
         for entry in self['SETTINGS']:
             if entry in self.lists:
-                if entry == 'Reports:':
+                if entry == 'Category configuration defaults:':
+                    if 'category_config_defaults' not in settings_dict: settings_dict['category_config_defaults'] = dict()
+                    '''for settings in self['SETTINGS'][entry].keys():
+                        parsed_settings = parse_boxes(line = settings, keywords = self.category_config_keywords)
+                        settings_dict['category_config_defaults'][curve] = parsed_settings'''
+                    parsed_settings = parse_boxes(lines = self['SETTINGS'][entry], keywords = self.category_config_keywords)
+                    settings_dict['category_config_defaults'] = parsed_settings
+                    continue
+                elif entry == 'Reports:':
                     if 'reports' not in settings_dict: settings_dict['reports'] = dict()
                     for curve, report_settings in self['SETTINGS'][entry].items():
                         if issubclass(type(report_settings), dict):
