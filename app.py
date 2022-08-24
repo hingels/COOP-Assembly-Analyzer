@@ -402,7 +402,7 @@ class Desk():
         
         figure_info = self.figure
         self.fig, self.ax, self.fig_number = figure_info['figure'], figure_info['axes'], figure_info['number']
-    def show_all(self, fits, fits_visible = True, marks_visible = True, legend_visible = True, errorbars_visible = False, show_categories = True):
+    def show_all(self, fits, fits_visible = True, marks_visible = True, legend_visible = True, errorbars_visible = False, categories = None):
         'Shows or hides all lines and scatterplots in the given Fits object.'
         show_marks_on_legend = self.show_marks_on_legend
         scatterplot = fits.scatterplot
@@ -410,10 +410,8 @@ class Desk():
         show_ignored = False
         if use_fits_scatterplot:
             if scatterplot['pathcollections']['ignore'] is not None: show_ignored = True
-            try: print('Showing', fits.group, fits.category, fits.sample, 'and setting errorbar visibility to', errorbars_visible, 'affecting', errorbars_text)
-            except: pass
             show_scatterplot(scatterplot, fits_visible)
-        if not marks_visible or not fits_visible: show_marks_on_legend(marks_visible = False, legend_visible = legend_visible, errorbars_visible = errorbars_visible, show_categories = show_categories, show_ignored = show_ignored)
+        if not marks_visible or not fits_visible: show_marks_on_legend(marks_visible = False, legend_visible = legend_visible, errorbars_visible = errorbars_visible, categories = categories, show_ignored = show_ignored)
         if not fits_visible:
             for fit in fits:
                 show(fit.line, False)
@@ -429,7 +427,7 @@ class Desk():
                     fit_scatterplot = fit.scatterplot
                     if fit_scatterplot['pathcollections']['ignore'] is not None: show_ignored = True
                     show_scatterplot(fit_scatterplot)
-            if marks_visible: show_marks_on_legend(fits.curve, legend_visible = legend_visible, errorbars_visible = errorbars_visible, show_categories = show_categories, show_ignored = show_ignored, color = fits.color)
+            if marks_visible: show_marks_on_legend(fits.curve, legend_visible = legend_visible, errorbars_visible = errorbars_visible, categories = categories, show_ignored = show_ignored, color = fits.color)
             return
         curve = fits.curve
         for fit in fits:
@@ -438,7 +436,7 @@ class Desk():
                 fit_scatterplot = fit.scatterplot
                 if fit_scatterplot['pathcollections']['ignore'] is not None: show_ignored = True
                 show_scatterplot(fit_scatterplot)
-        if marks_visible: show_marks_on_legend(curve, legend_visible = legend_visible, errorbars_visible = errorbars_visible, show_categories = show_categories, show_ignored = show_ignored)
+        if marks_visible: show_marks_on_legend(curve, legend_visible = legend_visible, errorbars_visible = errorbars_visible, categories = categories, show_ignored = show_ignored)
     
     def get_capture_filename(self, curve, category = None, sample = None, special = False, autozoom = False, lens = 1, all_fits = False, all_categories = False):
         out = []
@@ -451,16 +449,17 @@ class Desk():
         else: out.append(f'ZoomX{lens}')
         if all_categories: out.append('All')
         return '_'.join(out) + '.png'
-    def capture(self, fits: Fits, folder = None, filename = None, lens = 1, autozoom = False, marks_visible = True, legend_visible = True, errorbars_visible = False, all_fits = False, all_categories = False, title_info = None):
+    def capture(self, fits: Fits, folder = None, filename = None, lens = 1, autozoom = False, marks_visible = True, legend_visible = True, errorbars_visible = False, all_fits = False, categories = None, title_info = None, categories_title = None):
         ax, names, show_all, zoom, offscreen_marks_transparent = self.ax, self.names, self.show_all, self.zoom, self.offscreen_marks_transparent
-        show_all_args = {'marks_visible': marks_visible, 'legend_visible': legend_visible, 'errorbars_visible': errorbars_visible, 'show_categories': all_categories}
+        show_all_args = {'marks_visible': marks_visible, 'legend_visible': legend_visible, 'errorbars_visible': errorbars_visible, 'categories': categories}
 
         plt.sca(ax)
         if autozoom: assert lens == 1, 'Lens must be 1 if autozoom is enabled.'
         else: folder += f'/Zoom x{lens}'
         os.makedirs(folder, exist_ok = True)
         fits_title = f'{fits.curve.title_lowercase} fit' if not all_fits else f'all {fits.curve.title_lowercase} fits'
-        categories_title = f'{fits.category}' if not all_categories else f"all {names['category']['plural']}"
+        if categories_title is None:
+            categories_title = f'{fits.category}' if categories is None else f"all {names['category']['plural']}"
         if title_info is None:
             ax.set_title(f"{names['figure title base']}, {self.group},\n{categories_title} ({fits_title})")
         else:
@@ -622,7 +621,7 @@ class Desk():
         
         return bottom, top, left, right
 
-    def set_legend(self, hidden = None, visible = True, errorbars_visible = True, show_categories = True, color = None):
+    def set_legend(self, hidden = None, visible = True, errorbars_visible = True, categories = None, color = None):
         ax, legend_handles_labels, legend_categories = self.ax, self.legend_handles_labels, self.legend_categories
         figure_box = self.figure_box
         if figure_box is None:
@@ -678,7 +677,8 @@ class Desk():
                 assert type(handle) is Line2D
                 handle.set(**marker)
                 new_legend_handles_labels[newlabel] = handle
-            if show_categories: new_legend_handles_labels.update(legend_categories)
+            if categories is not None:
+                new_legend_handles_labels.update({key: value for key, value in legend_categories.items() if key in categories})
             legend_handles_labels.clear()
             legend_handles_labels.update(new_legend_handles_labels)
         with warnings.catch_warnings(record=True):
@@ -692,7 +692,7 @@ class Desk():
             if hasattr(self, 'errorbars_text'): self.errorbars_text.set_visible(errorbars_visible)
             if visible: ax.set_position(figure_box)
             else: ax.set_position(self.figure_box_initial)
-    def show_marks_on_legend(self, curve = None, marks_visible = True, legend_visible = True, errorbars_visible = False, show_categories = True, show_ignored = True, color = None):
+    def show_marks_on_legend(self, curve = None, marks_visible = True, legend_visible = True, errorbars_visible = False, categories = None, show_ignored = True, color = None):
         if curve is not None:
             if hasattr(curve, 'marks') is False: marks_visible = False
             styles = curve.styles
@@ -702,7 +702,7 @@ class Desk():
             show = styles.keys() if marks_visible else []
         if not show_ignored: styles = styles | {'ignore': scatter_styles['default']['ignore']}
         hidden = tuple(style['title'] for mark, style in styles.items() if mark not in show)
-        self.set_legend(hidden = hidden, visible = legend_visible, errorbars_visible = errorbars_visible, show_categories = show_categories, color = color)
+        self.set_legend(hidden = hidden, visible = legend_visible, errorbars_visible = errorbars_visible, categories = categories, color = color)
     def get_winner_lines(self, mode, sample = None):
         group = self.group
         groupfits = self.fits[group]
@@ -999,6 +999,7 @@ def main():
     save_candidates = reader.save_candidates
     save_all_fits, save_averaged, save_combined = reader.save_all_fits, reader.save_averaged, reader.save_combined
     experiment = reader.selected_experiment
+    category_collections = reader.category_collections
     plt.rcParams['font.family'] = reader.font if hasattr(reader, 'font') else 'Arial'
     zoom_settings = reader.zoom_settings
 
@@ -1198,17 +1199,22 @@ def main():
                     capture_all(zoom_settings, capture_args, filename_args, presetzoom_folder, autozoom_folder)
             
         for curve in curves:
-            all_averaged_samples = Fits(
-                group, mode = DE_leastsquares, curve = curve,
-                fits = tuple(fits[group][category][DE_leastsquares][curve]['Averaged'] for category in data) )
-            
-            filename_args = {'curve': curve, 'sample': 'Averaged', 'special': True, 'all_categories': True}
-            capture_args = {'fits': all_averaged_samples, 'marks_visible': False, 'legend_visible': True, 'errorbars_visible': True, 'all_categories': True, 'title_info': 'averaged'}
-            
-            presetzoom_folder = winners_special['Averaged']['Preset']
-            autozoom_folder = winners_special['Averaged']['Autozoom']
+            for name, collection in ({'All': data} | category_collections).items():
+                all_averaged_samples = Fits(
+                    group, mode = DE_leastsquares, curve = curve,
+                    fits = tuple(fits[group][category][DE_leastsquares][curve]['Averaged'] for category in data if category in collection) )
+                
+                filename_args = {'curve': curve, 'sample': 'Averaged', 'special': True}
+                capture_args = {'fits': all_averaged_samples, 'categories': collection, 'marks_visible': False, 'legend_visible': True, 'errorbars_visible': True, 'title_info': 'averaged'}
+                if name == 'All':
+                    filename_args['all_categories'] = True
+                else:
+                    capture_args['categories_title'] = name
+                    filename_args['category'] = name
+                presetzoom_folder = winners_special['Averaged']['Preset']
+                autozoom_folder = winners_special['Averaged']['Autozoom']
 
-            capture_all(zoom_settings, capture_args, filename_args, presetzoom_folder, autozoom_folder)
+                capture_all(zoom_settings, capture_args, filename_args, presetzoom_folder, autozoom_folder)
 
         
         desk.DE_leastsquares_averaged_lines = desk.get_winner_lines(DE_leastsquares)

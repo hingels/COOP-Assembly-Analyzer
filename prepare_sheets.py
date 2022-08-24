@@ -27,6 +27,7 @@ class ConfigReader(OD):
     
     lists = {
         'Category configuration defaults:': 'category_config_defaults',
+        'Category collections:': 'category_collections',
         'Reports:': 'reports',
         'Figure zoom settings:': 'zoom_settings' }
     category_config_keywords = {
@@ -255,7 +256,7 @@ class ConfigReader(OD):
             item_func = lambda item, **_: f'\t\t\t- {item_property} = {item[1][item_property]}'
         return '\n'.join(self.apply_functions(section_func, subsection_func, group_func, item_func))
     def get_settings(self):
-        box, equal_sign, checkbox, wordbox, base_level_settings, subsections_settings = self.box, self.equal_sign, self.checkbox, self.wordbox, self.base_level_settings, self.subsections_settings
+        box, equal_sign, checkbox, wordbox, base_level_settings, subsections_settings, lists = self.box, self.equal_sign, self.checkbox, self.wordbox, self.base_level_settings, self.subsections_settings, self.lists
         settings_dict = dict()
         combine_dicts = lambda dict1, dict2: dict1 | dict2
         def unpack_nested_dict(input, keywords, key = None):
@@ -333,37 +334,36 @@ class ConfigReader(OD):
 
             return settings
         
-        for entry in self['SETTINGS']:
-            if entry in self.lists:
+        entries = self['SETTINGS']
+        for entry, contents in entries.items():
+            if entry in lists:
+                setting = lists[entry]
                 if entry == 'Category configuration defaults:':
-                    if 'category_config_defaults' not in settings_dict: settings_dict['category_config_defaults'] = dict()
-                    '''for settings in self['SETTINGS'][entry].keys():
-                        parsed_settings = parse_boxes(line = settings, keywords = self.category_config_keywords)
-                        settings_dict['category_config_defaults'][curve] = parsed_settings'''
-                    parsed_settings = parse_boxes(lines = self['SETTINGS'][entry], keywords = self.category_config_keywords)
-                    settings_dict['category_config_defaults'] = parsed_settings
-                    continue
+                    if setting not in settings_dict: settings_dict[setting] = dict()
+                    parsed_settings = parse_boxes(lines = contents, keywords = self.category_config_keywords)
+                    settings_dict[setting] = parsed_settings
+                elif entry == 'Category collections:':
+                    settings_dict[setting] = {key: tuple(value.keys()) for key, value in contents.items()}
                 elif entry == 'Reports:':
-                    if 'reports' not in settings_dict: settings_dict['reports'] = dict()
-                    for curve, report_settings in self['SETTINGS'][entry].items():
+                    if setting not in settings_dict: settings_dict[setting] = dict()
+                    for curve, report_settings in contents.items():
                         if issubclass(type(report_settings), dict):
                             parsed_settings = parse_boxes(lines = report_settings, keywords = self.report_keywords)
                         else:
                             parsed_settings = parse_boxes(line = report_settings, keywords = self.report_keywords)
-                        settings_dict['reports'][curve] = parsed_settings
-                    continue
+                        settings_dict[setting][curve] = parsed_settings
                 elif entry == 'Figure zoom settings:':
                     def get_zoom_settings():
-                        for key, value in self['SETTINGS'][entry].items():
+                        for key, value in contents.items():
                             zoom = (key == 'Zoom magnifications:')
                             if zoom:
                                 yield {'zoom': tuple(value.keys())}
                                 continue
                             yield parse_boxes(line = key, keywords = {'Autozoom': 'autozoom'})
-                    settings_dict['zoom_settings'] = OD(reduce(lambda a, b: a | b, get_zoom_settings()))
-                    continue
+                    settings_dict[setting] = OD(reduce(lambda a, b: a | b, get_zoom_settings()))
+                continue
             if entry in self.subsections:
-                settings_dict.update(parse_boxes(lines = self['SETTINGS'][entry], keywords = base_level_settings | subsections_settings))
+                settings_dict.update(parse_boxes(lines = contents, keywords = base_level_settings | subsections_settings))
                 continue
             if any(setting in entry for setting in self.base_level_settings):
                 settings_dict.update(parse_boxes(line = entry, keywords = base_level_settings | subsections_settings))
