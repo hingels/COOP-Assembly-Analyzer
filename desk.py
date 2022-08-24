@@ -19,16 +19,15 @@ class Desk():
         self.figure = {}
         self.averaged_samples = {}
         self.standard_deviations = {}
-        self.DE_leastsquares_averaged_lines = {}
         self.group_optima = {'x': (None, None), 'y': (None, None)}
         self.category_optima = {}
         self.sample_optima = {}
     def setup(self):
         group = self.group
 
-        paths = self.paths[group]
+        paths = self.paths['groups'][group]
         self.figures_path = paths['figures_path']
-        self.groupfolder_paths = paths['groupfolder_path']
+        self.groupfolder_path = paths['groupfolder_path']
         if 'candidates' in paths:
             candidates_paths = paths['candidates']
             self.candidates_individual = candidates_paths['individual']
@@ -382,16 +381,3 @@ class Desk():
         if not show_ignored: styles = styles | {'ignore': scatter_styles['default']['ignore']}
         hidden = tuple(style['title'] for mark, style in styles.items() if mark not in show)
         self.set_legend(hidden = hidden, visible = legend_visible, errorbars_visible = errorbars_visible, categories = categories, color = color)
-    def get_winner_lines(self, mode, sample = None):
-        group = self.group
-        groupfits = self.fits[group]
-        return OD({
-            curve: OD({
-                category: ((
-                    (curve_dict := category_dict[mode][curve])[(
-                        sample if sample is not None
-                        else 'Averaged' if 'Averaged' in curve_dict
-                        else 'Combined'
-                    )].line) )
-                for category, category_dict in groupfits.items() })
-            for curve in curves })
