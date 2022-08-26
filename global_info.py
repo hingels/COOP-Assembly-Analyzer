@@ -13,6 +13,7 @@ special_samples = {
 end_default = 120
 
 curves = onepercent_anchored_logistic, normalized_exponential
+names_to_curves = {curve.__name__: curve for curve in curves}
 modes = DE_leastsquares, NLS
 
 experiment_optima = {'x': (None, None), 'y': (None, None)}

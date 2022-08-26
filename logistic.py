@@ -38,8 +38,8 @@ normalized_logistic.styles = mark_styles
 
 def onepercent_anchored_logistic(t, A, t_1percent, k_NL):
     k_L = k_NL / A
-    offset = -ln(99) / k_L
-    t_half = t_1percent - offset
+    offset = ln(99) / k_L
+    t_half = t_1percent + offset
     return logistic(t, 0, A, t_half, k_L)
 onepercent_anchored_logistic.title = 'Logistic'
 onepercent_anchored_logistic.title_lowercase = 'logistic'

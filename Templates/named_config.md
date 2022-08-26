@@ -15,6 +15,12 @@
     - [x] Save "Averaged samples" figures
     - [ ] Save "Combined samples" figures
     - Selected experiment = [experiment1]
+    - Category configuration defaults:
+        - end = [120]
+        - subtract_initial = [False]
+        - subtract_min = [True]
+        - combine_samples = [True]
+        - max_as_max = [False]
     - Reports:
         - 1%-anchored logistic
             - Curve = [onepercent_anchored_logistic]
@@ -76,23 +82,18 @@
                 - end
                     - Ignore data after a specified independent variable value.
                     - Possible values: any real number
-                    - Default: 120
                 - subtract_initial
                     - For each sample, subtract the first point's y-axis value from all points.
                     - Possible values: True or False
-                    - Default: False
                 - subtract_min
                     - For each sample, subtract the minimum point's y-axis value from all points.
                     - Possible values: True or False
-                    - Default: True
                 - combine_samples
                     - In addition to fitting each sample independently, fit a new sample created by combining the others.
                     - Possible values: True or False
-                    - Default: True
                 - max_as_max
                     - For each sample, use the maximum point's y-axis value as the fit's maximum possible y-axis value.
                     - Possible values: True or False
-                    - Default: False
             - Examples:
                 - Category 1 end=90
                 - If "Use sheet names as groups" is checked:

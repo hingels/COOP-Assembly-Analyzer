@@ -49,7 +49,7 @@ def main():
     save_candidates = reader.save_candidates
     save_all_fits, save_averaged, save_combined = reader.save_all_fits, reader.save_averaged, reader.save_combined
     experiment = reader.selected_experiment
-    category_collections = reader.category_collections
+    category_collections = reader.category_collections if hasattr(reader, 'category_collections') else {}
     plt.rcParams['font.family'] = reader.font if hasattr(reader, 'font') else 'Arial'
     zoom_settings = reader.zoom_settings
 
@@ -93,7 +93,7 @@ def main():
         
         ax = desk.figure['axes']
 
-        data, config_per_category, samples, averaged_samples, fit_diff_ev_least_sq, set_legend, capture_all = desk.categories, desk.config_per_category, desk.samples, desk.averaged_samples, desk.fit_diff_ev_least_sq, desk.set_legend, desk.capture_all
+        data, config_per_category, samples, averaged_samples, fit_diff_ev_least_sq, set_legend = desk.categories, desk.config_per_category, desk.samples, desk.averaged_samples, desk.fit_diff_ev_least_sq, desk.set_legend
         show_scatterplot = Desk.show_scatterplot
 
         ascending_order = [ (averaged_samples[category].max(), category) for category in data ]; ascending_order.sort()
@@ -175,7 +175,7 @@ def main():
 
     timer.save_time('curve report generation')
     
-    CurveReports(reader, curves, desks).report()
+    CurveReports(reader, desks).report()
     
     timer.save_time()
     perf_time, monotonic_time = timer.time
