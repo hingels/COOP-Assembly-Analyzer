@@ -35,12 +35,12 @@ class Fits(list):
             self.optimizer = optimizer
             self.objective_function = fit_input['func']
 
-            if optimizer == diff_ev and self.objective_function == SSE:
+            if optimizer == diff_ev and self.objective_function == SSR:
                 x_arg, y_arg, function_arg = fit_input['args']
                 x_arg, y_arg = np.array(x_arg), np.array(y_arg)
-                final_SSE = fit_output['fun']
+                final_SSR = fit_output['fun']
                 N = len(x_arg)
-                MSE = final_SSE / N
+                MSE = final_SSR / N
                 RMSE = np.sqrt(MSE)
                 self.RMSE = RMSE
                 self.RMSE_normalized = RMSE / y_arg.mean()
@@ -73,7 +73,7 @@ class Fits(list):
                 output_skip.add('message')
                 additional_info = OD()
                 objective_function = self.objective_function
-                if objective_function == SSE:
+                if objective_function == SSR:
                     additional_info['Error (root-mean-square, RMSE)'] = self.RMSE
                     additional_info['Normalized error (RMSE/mean)'] = self.RMSE_normalized
                     output_skip.add('fun')
@@ -217,7 +217,7 @@ class Fits(list):
                     't_90%': exponential_percent_to_time(0.9, k_E, t0),
                     't_95%': exponential_percent_to_time(0.95, k_E, t0),
                     't_99%': exponential_percent_to_time(0.99, k_E, t0) })
-                exponential_kwargs = {'t0': t0, 'A': A, 'k_E': k_E}
+                exponential_kwargs = {'A': A, 't0': t0, 'k_E': k_E}
                 add_calculations(
                     OD({
                         'on figure': calculations,

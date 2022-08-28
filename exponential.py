@@ -1,7 +1,7 @@
 from numpy import exp, log as ln
 from styles import mark_styles
 
-def exponential(t, t0, A, k_E):
+def exponential(t, A, t0, k_E):
     return A * (1 - exp(-k_E * (t - t0)))
 exponential.title = 'Non-normalized exponential'
 exponential.title_lowercase = 'non-normalized exponential'
@@ -17,9 +17,9 @@ def exponential_max_rate(A, *, k_E = None, k_NE = None):
         return A * k_E
     return k_NE
 
-def normalized_exponential(t, t0, A, k_NE):
+def normalized_exponential(t, A, t0, k_NE):
     k_E = k_NE / A
-    return exponential(t, t0, A, k_E)
+    return exponential(t, A, t0, k_E)
 normalized_exponential.title = 'Exponential'
 normalized_exponential.title_lowercase = 'exponential'
 normalized_exponential.equation = 'A * (1 - exp(-(k_NE/A) * (t - t0)))'

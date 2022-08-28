@@ -43,16 +43,16 @@ nonlin_least_sq.conversions = {
     'output': dict() }
 
 
-def SSE(curve_variables, *objective_variables):
-    "Sum of square errors (SSE). A differential evolution curve-fitting objective function."
+def SSR(curve_variables, *objective_variables):
+    "Sum of squared residuals (SSR). A differential evolution curve-fitting objective function."
     x_data, y_data, f = objective_variables
     return ( (f(x_data, *curve_variables) - y_data)**2 ).sum()
-SSE.title = 'Least Squares; minimizes sum of square errors (SSE)'
+SSR.title = 'Least Squares; minimizes sum of square errors (SSR)'
 
 class Mode():
     def __init__(self, optimizer, title, objective_function = None):
         self.optimizer, self.title = optimizer, title
         if objective_function is not None: self.objective_function = objective_function
 
-DE_leastsquares = Mode(diff_ev, 'DE, least-squares objective', SSE)
+DE_leastsquares = Mode(diff_ev, 'DE, least-squares objective', SSR)
 NLS = Mode(nonlin_least_sq, 'NLS')

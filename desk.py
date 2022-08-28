@@ -159,7 +159,7 @@ class Desk():
             iterations = self.iterations
         
         
-        fit_input = OD({ 'func': SSE, 'args': (x, y, curve), 'bounds': bounds, **other_args })
+        fit_input = OD({ 'func': SSR, 'args': (x, y, curve), 'bounds': bounds, **other_args })
         
         special = sample in special_samples
         if special:
