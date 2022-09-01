@@ -1,5 +1,5 @@
-# COOP-Assembly-Analyzer
-A Python program designed to fit COOP assembly data, particularly from thioflavin T measurements.
+# CoOP-Assembly-Analyzer
+A Python program designed to fit CoOP assembly data, particularly from thioflavin T measurements.
 
 To install:
 - Install Miniconda
