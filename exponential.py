@@ -17,7 +17,8 @@ def exponential_max_rate(A, *, k_E = None, k_NE = None):
         return A * k_E
     return k_NE
 
-def normalized_exponential(t, A, t0, k_NE):
+def normalized_exponential(t, A, k_NE):
+    t0 = 0
     k_E = k_NE / A
     return exponential(t, A, t0, k_E)
 normalized_exponential.title = 'Exponential'

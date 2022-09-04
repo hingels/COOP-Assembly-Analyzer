@@ -176,7 +176,7 @@ class Fits(list):
                 k_NL = curve_kwargs['k_NL']
                 A = curve_kwargs['A']
                 k_L = k_NL / A
-                t_1percent = curve_kwargs['t_1percent']
+                t_1percent = 0
                 t_half = t_1percent + ln(99) / k_L
                 calculations = OD({
                     't_1%': t_1percent,
@@ -204,7 +204,7 @@ class Fits(list):
                             'Last data point value': last_point[1] }) }),
                     logistic, logistic_kwargs)
             elif curve == normalized_exponential:
-                t0 = curve_kwargs['t0']
+                t0 = 0
                 A = curve_kwargs['A']
                 k_NE = curve_kwargs['k_NE']
                 k_E = k_NE / A

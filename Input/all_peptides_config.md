@@ -45,7 +45,7 @@
         - Notes:
             - For dates, use {yy}, {mm}, and {dd} to represent two-digit year, month, and day, respectively. Use {yyyy} to represent four-digit year.
             - For times, use {hour}, {min}, and {XM} to represent hour, min, and AM or PM in 12-hour style. For 24-hour style, use {HOUR} for hours and {min} for minutes.
-        - File name = [ThT_PROCESSED{yy}{mm}{dd}_{HOUR}{min}o'clock]
+        - File name = [all_peptides_PROCESSED{yy}{mm}{dd}_{HOUR}{min}o'clock]
     - Column naming:
         - [ ] Letters and numbers
             - Examples:

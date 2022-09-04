@@ -164,8 +164,8 @@ def main():
                 fitting_info = { 'x': x_use, 'y': y_use, 'category': category, 'sample': sample, 'color': color }
                 upperbound = y_max if max_as_max else 10 * y_window_height
                 
-                fit_diff_ev_least_sq(curve = normalized_exponential, bounds = ((0, upperbound), (-10, x_window[1]), (0, y_max)), other_args = {'maxiter': 1000}, **fitting_info)
-                fit_diff_ev_least_sq(curve = onepercent_anchored_logistic, bounds = ((0, upperbound), (-10, x_window[1]), (0, 10000)), other_args = {'maxiter': 1000}, **fitting_info)
+                fit_diff_ev_least_sq(curve = normalized_exponential, bounds = ((0, upperbound), (0, y_max)), other_args = {'maxiter': 1000}, **fitting_info)
+                fit_diff_ev_least_sq(curve = onepercent_anchored_logistic, bounds = ((0, upperbound), (0, 10000)), other_args = {'maxiter': 1000}, **fitting_info)
 
             if save_all_fits: capture_all_fits(category, desk)
             
