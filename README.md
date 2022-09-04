@@ -1,3 +1,5 @@
+![Example picture](example_picture.png)
+
 # CoOP-Assembly-Analyzer
 A Python program designed to fit CoOP assembly data, particularly from thioflavin T measurements.
 
