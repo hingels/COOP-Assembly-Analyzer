@@ -1,5 +1,6 @@
 from numpy import exp, log as ln
 from styles import mark_styles
+from constants_calculation import logistic_fraction_logs, ln99
 
 def logistic(t, y0, A, t_half, k_L):
     return y0 + A/(1 + exp(-k_L*(t - t_half)))
@@ -16,9 +17,13 @@ def logistic_max_rate(A, *, k_L = None, k_NL = None):
     if k_NL is None:
         return (A * k_L) / 4
     return k_NL / 4
-def logistic_percent_to_time(percent, k_L, t_half):
-    "Calculates the time at which a logistic function reaches a given percentage of its amplitude."
-    return -ln(1/percent - 1)/k_L + t_half
+def logistic_fraction_to_time(fraction, k_L, t_half):
+    "Calculates the time at which a logistic function reaches a given fraction of its amplitude."
+    if fraction in logistic_fraction_logs:
+        fraction_log = logistic_fraction_logs[fraction]
+    else:
+        fraction_log = ln(1/fraction - 1)
+    return -fraction_log/k_L + t_half
 def logistic_extrapolated_lagtime(k_L, t_half):
     """
     Calculates the time at which the tangent line to a logistic function's inflection point intercepts its lower asymptote.
@@ -36,7 +41,6 @@ normalized_logistic.equation_notes = 'k_NL describes the proportions\nof the cur
 normalized_logistic.marks = {'t_5%', 't_10%', 't_90%', 't_95%', 'lagtime', 't_50%'}
 normalized_logistic.styles = mark_styles
 
-ln99 = ln(99)
 def onepercent_anchored_logistic(t, A, k_NL):
     t_1percent = 0
     k_L = k_NL / A

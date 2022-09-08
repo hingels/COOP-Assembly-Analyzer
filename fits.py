@@ -8,6 +8,7 @@ from KWW import *
 from logistic import *
 from exponential import *
 from global_info import *
+from constants_calculation import ln99
 from styles import *
 
 class Fits(list):
@@ -147,13 +148,13 @@ class Fits(list):
                 t_half = curve_kwargs['t_half']
                 k_L = k_NL / A
                 calculations = OD({
-                    't_1%': logistic_percent_to_time(0.01, k_L, t_half),
-                    't_5%': logistic_percent_to_time(0.05, k_L, t_half),
-                    't_10%': logistic_percent_to_time(0.1, k_L, t_half),
+                    't_1%': logistic_fraction_to_time(0.01, k_L, t_half),
+                    't_5%': logistic_fraction_to_time(0.05, k_L, t_half),
+                    't_10%': logistic_fraction_to_time(0.1, k_L, t_half),
                     't_50%': t_half,
-                    't_90%': logistic_percent_to_time(0.9, k_L, t_half),
-                    't_95%': logistic_percent_to_time(0.95, k_L, t_half),
-                    't_99%': logistic_percent_to_time(0.99, k_L, t_half),
+                    't_90%': logistic_fraction_to_time(0.9, k_L, t_half),
+                    't_95%': logistic_fraction_to_time(0.95, k_L, t_half),
+                    't_99%': logistic_fraction_to_time(0.99, k_L, t_half),
                     'lagtime': logistic_extrapolated_lagtime(k_L, t_half) })
                 logistic_kwargs = {'y0': 0, 'A': A, 't_half': t_half, 'k_L': k_L}
                 add_calculations(
@@ -177,15 +178,15 @@ class Fits(list):
                 A = curve_kwargs['A']
                 k_L = k_NL / A
                 t_1percent = 0
-                t_half = t_1percent + ln(99) / k_L
+                t_half = t_1percent + ln99 / k_L
                 calculations = OD({
                     't_1%': t_1percent,
-                    't_5%': logistic_percent_to_time(0.05, k_L, t_half),
-                    't_10%': logistic_percent_to_time(0.1, k_L, t_half),
+                    't_5%': logistic_fraction_to_time(0.05, k_L, t_half),
+                    't_10%': logistic_fraction_to_time(0.1, k_L, t_half),
                     't_50%': t_half,
-                    't_90%': logistic_percent_to_time(0.9, k_L, t_half),
-                    't_95%': logistic_percent_to_time(0.95, k_L, t_half),
-                    't_99%': logistic_percent_to_time(0.99, k_L, t_half) })
+                    't_90%': logistic_fraction_to_time(0.9, k_L, t_half),
+                    't_95%': logistic_fraction_to_time(0.95, k_L, t_half),
+                    't_99%': logistic_fraction_to_time(0.99, k_L, t_half) })
                 logistic_kwargs = {'y0': 0, 'A': A, 't_half': t_half, 'k_L': k_L}
                 add_calculations(
                     OD({
@@ -210,13 +211,13 @@ class Fits(list):
                 k_E = k_NE / A
                 calculations = OD({
                     't0': t0,
-                    't_1%': exponential_percent_to_time(0.01, k_E, t0),
-                    't_5%': exponential_percent_to_time(0.05, k_E, t0),
-                    't_10%': exponential_percent_to_time(0.1, k_E, t0),
-                    't_50%': exponential_percent_to_time(0.5, k_E, t0),
-                    't_90%': exponential_percent_to_time(0.9, k_E, t0),
-                    't_95%': exponential_percent_to_time(0.95, k_E, t0),
-                    't_99%': exponential_percent_to_time(0.99, k_E, t0) })
+                    't_1%': exponential_fraction_to_time(0.01, k_E, t0),
+                    't_5%': exponential_fraction_to_time(0.05, k_E, t0),
+                    't_10%': exponential_fraction_to_time(0.1, k_E, t0),
+                    't_50%': exponential_fraction_to_time(0.5, k_E, t0),
+                    't_90%': exponential_fraction_to_time(0.9, k_E, t0),
+                    't_95%': exponential_fraction_to_time(0.95, k_E, t0),
+                    't_99%': exponential_fraction_to_time(0.99, k_E, t0) })
                 exponential_kwargs = {'A': A, 't0': t0, 'k_E': k_E}
                 add_calculations(
                     OD({
