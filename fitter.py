@@ -26,7 +26,6 @@ from constants_calculation import ln99
 class Fitter():
     experiment = None
     experiment_optima = {'x': (None, None), 'y': (None, None)}
-    scatterplots = OD()
     fits = OD()
 
     special_samples = {
@@ -64,9 +63,10 @@ class Fitter():
                     self.formatted_bounds = ', '.join( f'{variable}: {bound[0]} to {bound[1]}' for variable, bound in self.bounds.items() )
                     self.values = OD(sig.bind(*tuple(values)).arguments)
             
-            def __init__(self, group, category, mode, curve, sample, fit_input, fit_output, line, scatterplot = None, color = None, ax = None):
+            def __init__(self, fitter, category, mode, curve, sample, fit_input, fit_output, line, scatterplot = None, color = None, ax = None):
                 self.curve, self.fit_output, self.mode, self.fit_input, self.line = curve, fit_output, mode, fit_input, line
-                self.group, self.category, self.sample = group, category, sample
+                self.fitter = fitter
+                self.group, self.category, self.sample = fitter.group, category, sample
                 self.ax = ax
                 self.scatterplot = scatterplot
                 
@@ -335,13 +335,14 @@ class Fitter():
                     data = tuple(datasource.values()),
                     index = tuple(datasource.keys()),
                     columns = ['Value'] )
-        def __init__(self, group = None, category = None, mode = None, curve = None, sample = None, color = None, scatterplot = None, fits = None, ax = None):
-            self.fit_args = (group, category, mode, curve, sample)
-            self.group, self.category, self.mode, self.curve, self.sample = group, category, mode, curve, sample
+        def __init__(self, fitter = None, category = None, mode = None, curve = None, sample = None, color = None, scatterplot = None, fits = None, ax = None):
+            self.fit_args = (fitter, category, mode, curve, sample)
+            self.fitter = fitter
+            self.category, self.mode, self.curve, self.sample = category, mode, curve, sample
             self.ax = ax
             if color is not None: self.color = color
-            if scatterplot is None and all(_ is not None for _ in (group, category, sample)):
-                scatterplot = Fitter.scatterplots[group][category][sample]
+            if scatterplot is None and all(_ is not None for _ in (fitter, category, sample)):
+                scatterplot = fitter.scatterplots[category][sample]
             self.scatterplot = scatterplot
             self.fits = fits
             if fits is not None: super().__init__(fits)
@@ -372,14 +373,15 @@ class Fitter():
             'subtract_initial': bool,
             'subtract_min': bool,
             'combine_samples': bool }
-        def __init__(self, group, category, config, reader):
-            self.group, self.category, self.config, self.reader = group, category, config, reader
-            self.sheet_names_as_groups = reader.sheet_names_as_groups
+        def __init__(self, group, category, category_config, reader):
+            self.group, self.category, self.category_config, self.reader = group, category, category_config, reader
+            reader_config = reader.config
+            self.sheet_names_as_groups = reader_config.sheet_names_as_groups
             
             parse_value = self.parse_value
             self.defaults = {
                 setting: parse_value(setting, value)
-                for setting, value in reader.category_config_defaults.items() }
+                for setting, value in reader_config.category_config_defaults.items() }
         def parse_value(self, setting, value):
             config_type = self.category_config_types[setting]
             if config_type is bool:
@@ -392,10 +394,10 @@ class Fitter():
                     raise ValueError(f'"{setting}" could not be converted to type {config_type}. Given {value=}.')
             return value
         def get_setting(self, setting):
-            config, group, sheet_names_as_groups = self.config, self.group, self.sheet_names_as_groups
+            category_config, group, sheet_names_as_groups = self.category_config, self.group, self.sheet_names_as_groups
             parse_value = self.parse_value
-            if setting not in config: return self.defaults[setting]
-            value = config[setting]
+            if setting not in category_config: return self.defaults[setting]
+            value = category_config[setting]
             if not sheet_names_as_groups:
                 assert issubclass(type(value), dict) is False, f'Invalid syntax: when "Use sheet names as groups" is disabled, "{setting}" must be specified as a number. Given {value=}.'
                 return parse_value(setting, value)
@@ -405,6 +407,7 @@ class Fitter():
 
     def __init__(self, group):
         self.group = group
+        self.scatterplots = OD()
         self.legend_handles_labels = OD()
         self.legend_categories = OD()
         self.figure = {}
@@ -419,25 +422,13 @@ class Fitter():
         cls.setup_files(root_path)
         data_path, config_path = cls.paths['data_path'], cls.paths['config_path']
         reader = ConfigReader(config_path)
-        experiment = reader.selected_experiment
-        cls.reader, cls.experiment = reader, experiment
-        cls.names = {
-            'figure title base': reader.figure_name,
-            'group': {
-                'singular': reader.group_name,
-                'plural': reader.groups_name },
-            'category': {
-                'singular': reader.category_name,
-                'plural': reader.categories_name } }
-        assert reader.iterations.isdigit()
-        cls.iterations = int(reader.iterations)
-        cls.save_candidates = reader.save_candidates
-        cls.save_all_fits, cls.save_averaged, cls.save_combined = reader.save_all_fits, reader.save_averaged, reader.save_combined
-        cls.category_collections = reader.category_collections if hasattr(reader, 'category_collections') else {}
-        plt.rcParams['font.family'] = reader.font if hasattr(reader, 'font') else 'Arial'
-        cls.zoom_settings = reader.zoom_settings
+        cls.reader = reader
 
-        output_filename_unformatted = partial(reader.output_filename.format)
+        config = reader.config
+
+        plt.rcParams['font.family'] = config.font
+
+        output_filename_unformatted = partial(config.output_filename.format)
         current_time = datetime.now()
         for abbreviation, meaning in Fitter.abbreviations['time'].items():
             output_filename_unformatted = partial(output_filename_unformatted, **{abbreviation: current_time.strftime(meaning)})
@@ -460,7 +451,9 @@ class Fitter():
         cls.paths.update({'output_filename_base': output_filename_base, 'path_base': path_base, 'input_copy': input_copy, 'output_path_base': output_path_base })
         cls.paths['groups'] = dict()
 
+        experiment = config.experiment
         cls.groups.update(reader.read_data(data_path)[experiment])
+        
     def setup(self):
         group = self.group
 
@@ -547,7 +540,9 @@ class Fitter():
         if all_categories: out.append('All')
         return '_'.join(out) + '.png'
     def capture(self, fits: Fits, folder = None, filename = None, lens = 1, autozoom = False, marks_visible = True, legend_visible = True, errorbars_visible = False, all_fits = False, categories = None, title_info = None, categories_title = None):
-        ax, names, show_all, zoom, offscreen_marks_transparent = self.ax, self.names, self.show_all, self.zoom, self.offscreen_marks_transparent
+        ax, show_all, zoom, offscreen_marks_transparent = self.ax, self.show_all, self.zoom, self.offscreen_marks_transparent
+        config = self.reader.config
+        names = config.names
         show_all_args = {'marks_visible': marks_visible, 'legend_visible': legend_visible, 'errorbars_visible': errorbars_visible, 'categories': categories}
 
         plt.sca(ax)
@@ -578,8 +573,9 @@ class Fitter():
         plt.savefig(f'{folder}/{filename}', dpi = 300)
         show_all(fits, False, **show_all_args)
     def capture_all(self, capture_args, filename_args, presetzoom_folder, autozoom_folder):
-        zoom_settings = Fitter.reader.zoom_settings
         capture, get_capture_filename = self.capture, self.get_capture_filename
+        config = self.reader.config
+        zoom_settings = config.zoom_settings
         for setting in zoom_settings:
             if setting == 'autozoom':
                 capture(autozoom = True, folder = autozoom_folder, filename = get_capture_filename(autozoom = True, **filename_args), **capture_args)
@@ -595,7 +591,7 @@ class Fitter():
         for curve in curves:
             curve_fits = DE_leastsquares_fits[curve]
             all_winners = Fits(
-                group, category, DE_leastsquares, curve, ax = ax,
+                self, category, DE_leastsquares, curve, ax = ax,
                 fits = tuple(curve_fits[sample] for sample in category_samples if sample not in special_samples) )
             
             filename_args = {'curve': curve, 'category': category, 'special': True, 'all_fits': True}
@@ -611,7 +607,7 @@ class Fitter():
         for curve in curves:
             for name, collection in ({'All': data} | category_collections).items():
                 all_averaged_samples = Fits(
-                    group, mode = DE_leastsquares, curve = curve, ax = ax,
+                    self, mode = DE_leastsquares, curve = curve, ax = ax,
                     fits = tuple(fits[group][category][DE_leastsquares][curve]['Averaged'] for category in data if category in collection) )
                 
                 filename_args = {'curve': curve, 'sample': 'Averaged', 'special': True}
@@ -627,8 +623,10 @@ class Fitter():
                 capture_all(capture_args, filename_args, presetzoom_folder, autozoom_folder)
     
     def fit_diff_ev_least_sq(self, curve, bounds, x, y, category, sample, other_args, color = 'black', iterations = None):
-        save_candidates, group, fits, lines_xdata = self.save_candidates, self.group, self.fits, self.lines_xdata
-        if iterations is None: iterations = self.iterations
+        group, fits, lines_xdata = self.group, self.fits, self.lines_xdata
+        config = self.reader.config
+        save_averaged, save_combined, save_candidates = config.save_averaged, config.save_combined, config.save_candidates
+        if iterations is None: iterations = config.iterations
         ax = self.ax
         candidates_individual, winners_individual_paths = self.candidates_individual, self.winners_individual_paths
         capture_all, show_all = self.capture_all, self.show_all
@@ -644,7 +642,7 @@ class Fitter():
         curve_name = curve.title
         curve_category = f'{curve_name}_{category}'
         
-        candidates = Fits(group, category, DE_leastsquares, curve, sample, color, ax = ax)
+        candidates = Fits(self, category, DE_leastsquares, curve, sample, color, ax = ax)
         for iteration in range(iterations):
             fit_output = diff_ev(**fit_input)
             y_model = curve(lines_xdata, *fit_output.x)
@@ -671,8 +669,8 @@ class Fitter():
                 for mark in line['marks'].values(): mark.remove()
                 del line
         
-        if ((not self.save_averaged and sample == 'Averaged') or
-            (not self.save_combined and sample == 'Combined') ):
+        if ((not save_averaged and sample == 'Averaged') or
+            (not save_combined and sample == 'Combined') ):
             show_all(candidates, False)
             delete_losers()
             return fit_output
@@ -871,17 +869,19 @@ class Fitter():
     
     @classmethod
     def prepare_fitters(cls):
-        experiment_optima, scatterplots, fits, fitters, paths = cls.experiment_optima, cls.scatterplots, cls.fits, cls.fitters, cls.paths
+        experiment_optima, fits, fitters, paths = cls.experiment_optima, cls.fits, cls.fitters, cls.paths
         groups = cls.groups
         reader = cls.reader
+        config = reader.config
         for group, categories in groups.items():
             fitter = cls(group)
             fitters[group] = fitter
 
             fig, ax = plt.subplots()
-            plt.xlabel(reader.independent_variable_axis)
-            plt.ylabel(reader.dependent_variable_axis)
-            ax.set_title(f'{reader.figure_name}, {group}')
+            plt.xlabel(config.independent_variable_axis)
+            plt.ylabel(config.dependent_variable_axis)
+            figure_name = config.names['figure title base']
+            ax.set_title(f'{figure_name}, {group}')
             fitter.figure.update({'figure': fig, 'axes': ax, 'number': fig.number})
 
             time_dataframe = categories.pop('independent_var_column')
@@ -910,7 +910,8 @@ class Fitter():
             fitter.errorbars = {}
 
             fits[group] = {}
-            scatterplots[group] = {}
+            scatterplots = {}
+            fitter.scatterplots = scatterplots
             update_optima, curves, modes, end_default = cls.update_optima, cls.curves, cls.modes, cls.end_default
             for category in categories:
                 fits[group][category] = {
@@ -918,15 +919,15 @@ class Fitter():
                         curve: {}
                         for curve in curves }
                     for mode in modes }
-                scatterplots[group][category] = {}
+                scatterplots[category] = {}
 
-                config = fitter.config_per_category[category]
-                end = config.get_setting('end')
+                category_config = fitter.config_per_category[category]
+                end = category_config.get_setting('end')
                 if end is None: end = end_default
-                subtract_initial = config.get_setting('subtract_initial')
-                subtract_min = config.get_setting('subtract_min')
+                subtract_initial = category_config.get_setting('subtract_initial')
+                subtract_min = category_config.get_setting('subtract_min')
                 if subtract_min is None: subtract_min = True
-                combine_samples = config.get_setting('combine_samples')
+                combine_samples = category_config.get_setting('combine_samples')
                 
                 x_data = time_values
 
@@ -1051,7 +1052,7 @@ class Fitter():
             candidates_individual = figure_paths(f'{candidates_path}/Individual samples')
             candidates_special = special_paths(f'{candidates_path}/All samples')
 
-            winners_path = f'{figures_path}/Winners' if cls.save_candidates else figures_path
+            winners_path = f'{figures_path}/Winners' if config.save_candidates else figures_path
             winners_individual_paths = figure_paths(f'{winners_path}/Individual samples')
             winners_special_paths = special_paths(f'{winners_path}/All samples')
             winners_all_paths = figure_paths(f'{winners_path}/All samples/All fits')
@@ -1066,7 +1067,8 @@ class Fitter():
                     'individual': winners_individual_paths,
                     'special': winners_special_paths,
                     'all': winners_all_paths } }
-    
+        return fitters
+
     @staticmethod
     def get_files(path, extensions, filename = r'.*'):
         if type(extensions) is not tuple: extensions = (extensions,)

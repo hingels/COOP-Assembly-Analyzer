@@ -107,11 +107,33 @@ class ConfigReader(OD):
         else:
             self.parse_column_range()
             self.column_range_to_columns()
+    
+    class Config():
+        def __init__(self, reader, settings):
+            experiment = settings.pop('selected_experiment')
+            self.reader, self.experiment = reader, experiment
+            self.names = {
+                'figure title base': settings.pop('figure_name'),
+                'group': {
+                    'singular': settings.pop('group_name'),
+                    'plural': settings.pop('groups_name') },
+                'category': {
+                    'singular': settings.pop('category_name'),
+                    'plural': settings.pop('categories_name') } }
+            iterations = settings.pop('iterations')
+            assert iterations.isdigit()
+            self.iterations = int(iterations)
+            self.save_candidates = settings.pop('save_candidates')
+            self.save_all_fits, self.save_averaged, self.save_combined = settings.pop('save_all_fits'), settings.pop('save_averaged'), settings.pop('save_combined')
+            self.category_collections = settings.pop('category_collections') if 'category_collections' in settings else {}
+            self.font = settings.pop('font') if 'font' in settings else 'Arial'
+            self.zoom_settings = settings.pop('zoom_settings')
+            for key, value in settings.items():
+                setattr(self, key, value)
     def apply_settings(self):
         'Applies settings and returns them.'
         settings = self.get_settings()
-        for key, value in settings.items():
-            setattr(self, key, value)
+        self.config = self.Config(self, settings)
         return settings
 
     def parse_configfile(self, extracted_config, current_line, current_indentation, stop_at = None):
@@ -376,6 +398,7 @@ class ConfigReader(OD):
         return settings_dict
 
     def read_data(self, filepath = None):
+        config = self.config
         if filepath.endswith('.csv'):
             sheet = pd.read_csv(filepath)
             dataframe = self.cleanup_sheet(sheet)
@@ -384,10 +407,10 @@ class ConfigReader(OD):
             assert filepath.endswith('xlsx'), f'Currently, only .csv and .xlsx files are supported. {filepath} cannot be used.'
             excelfile = pd.ExcelFile(filepath)
             sheets = pd.read_excel(excelfile, sheet_name = None)
-            if self.join_sheets is True:
+            if config.join_sheets:
                 dataframe = self.concatenate_sheets(sheets.values())
                 return self.read_from_columns(dataframe, sheet_name = sheet_name)
-            elif self.sheet_names_as_groups is True:
+            elif config.sheet_names_as_groups:
                 _categories_per_experiment = OD()
                 for sheet_name, sheet_dataframe in sheets.items():
                     sheet_dataframe = self.cleanup_sheet(sheet_dataframe)
@@ -445,8 +468,9 @@ class ConfigReader(OD):
         tuple(self.apply_functions(item_func=item_func))
         return self
     def column_range_to_columns(self):
+        config = self.config
         alphabet = string.ascii_uppercase
-        max_number = int(self.max_number)
+        max_number = int(config.max_number)
         def item_func(section, subsection, group, item):
             nonlocal alphabet
             section_name, subsection_name, group_name, item_name = section[0], subsection[0], group[0], item[0]
@@ -481,12 +505,13 @@ class ConfigReader(OD):
         tuple(self.apply_functions(item_func=item_func))
         return self
     def numbers_to_columns(self):
+        config = self.config
         column_name = 0   # All indices will be shifted later to account for the possibility of the independent variable column not being column 0.
         def item_func(section, subsection, group, item):
             nonlocal column_name
             section_name, subsection_name, group_name, item_name = section[0], subsection[0], group[0], item[0]
             assert group_name != 'CONTROLS', 'Cannot use CONTROLS group in "unnamed" mode. Instead, enter controls in order under SAMPLES and add control=True.'
-            n = int(self.n)
+            n = int(config.n)
             columns = list()
             for i in range(n):
                 columns.append(column_name)
@@ -495,6 +520,7 @@ class ConfigReader(OD):
         tuple(self.apply_functions(item_func=item_func))
         return self
     def read_from_columns(self, dataframe, sheet_name = None, sheet_names_as_groups = False):
+        config = self.config
         _categories_per_experiment = OD()
         def add_category(section, subsection, group, item):
             section_name, subsection_name, group_name, item_name = section[0], subsection[0], group[0], item[0]
@@ -509,9 +535,9 @@ class ConfigReader(OD):
             category_config = dict()
             if 'category_config' in item[1]:
                 category_config.update(item[1]['category_config'])
-            independent_var_column_name = self.independent_var_column_name
+            independent_var_column_name = config.independent_var_column_name
             independent_var_column = dataframe.iloc[:, 0] if independent_var_column_name == '' else dataframe[independent_var_column_name]
-            if self.unnamed is True:
+            if config.unnamed:
                 offset = 1
                 if independent_var_column_name != '':
                     offset += dataframe.columns.get_loc(independent_var_column_name)

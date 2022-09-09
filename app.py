@@ -23,14 +23,14 @@ def main():
     my_path = os.path.realpath(__file__)
     root_path = os.path.dirname(my_path)
     Fitter.configure(root_path)
-    Fitter.prepare_fitters()
-
-    scatterplots, fitters = Fitter.scatterplots, Fitter.fitters
+    fitters = Fitter.prepare_fitters()
     
     for group, fitter in fitters.items():
         print(f'\n\nGROUP {group}\n')
         
         fitter.setup()
+        reader = fitter.reader
+        config = reader.config
         
         ax = fitter.figure['axes']
 
@@ -61,14 +61,14 @@ def main():
             print(f'\n\nCATEGORY {category}, INDEX {index}\n')
 
             color = colors[category]
-            config = config_per_category[category]
-            max_as_max = config.get_setting('max_as_max')
+            category_config = config_per_category[category]
+            max_as_max = category_config.get_setting('max_as_max')
 
             category_x = fitter.x[category]
             category_y = fitter.y[category]
             
             category_samples = samples[category]
-            category_scatterplots = scatterplots[group][category]
+            category_scatterplots = fitter.scatterplots[category]
             
             for sample in category_samples:
                 x = category_x[sample]
@@ -108,15 +108,15 @@ def main():
                 fit_diff_ev_least_sq(curve = normalized_exponential, bounds = ((smallest, upperbound), (smallest, y_max)), other_args = {'maxiter': 1000}, **fitting_info)
                 fit_diff_ev_least_sq(curve = onepercent_anchored_logistic, bounds = ((smallest, upperbound), (smallest, 10000)), other_args = {'maxiter': 1000}, **fitting_info)
 
-            if fitter.save_all_fits: fitter.capture_all_fits(category)
+            if config.save_all_fits: fitter.capture_all_fits(category)
             
-        fitter.capture_all_averages(data, fitter.category_collections)
+        fitter.capture_all_averages(data, config.category_collections)
 
         GroupReport(fitter).report()
 
     timer.save_time('curve report generation')
     
-    CurveReports(Fitter.reader, fitters).report()
+    CurveReports().report()
     
     timer.save_time(ending = True)
     perf_time, monotonic_time = timer.time
@@ -125,7 +125,7 @@ def main():
     with open(f'{output_path_base}/Notes.md', mode = 'w') as readme:
         readme.write('\n'.join((
             "Notes:",
-            f"- {Fitter.iterations} iterations were used to generate this output.",
+            f"- {config.iterations} iterations were used to generate this output.",
             "- Run time:",
             f"\t- Measured by time.monotonic(): {int(elapsed_monotonic[0])} minute(s) and {elapsed_monotonic[1]} seconds.",
             f"\t- Measured by time.perf_counter(): {int(elapsed_perf_counter[0])} minute(s) and {elapsed_perf_counter[1]} seconds.") ))

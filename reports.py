@@ -119,9 +119,7 @@ class GroupReport():
                             main_format if column_index == 0 else top_format )
 
 class CurveReports():
-    def __init__(self, reader, fitters):
-        self.reader = reader
-        self.fitters = fitters
+    def __init__(self):
         paths = Fitter.paths
         self.data_path, self.config_path = paths['data_path'], paths['config_path']
         self.folder = paths['output_path_base']
@@ -150,10 +148,11 @@ class CurveReports():
                 yield name, value
     
     def get_curve_reports(self):
-        reader = self.reader
+        reader = Fitter.reader
+        config = reader.config
         get_info_rows = self.get_info_rows
         names_to_curves = Fitter.names_to_curves
-        for report in reader.reports.values():
+        for report in config.reports.values():
             yield OD({
                 'curve': names_to_curves[report['curve']],
                 'variable_names': tuple(
