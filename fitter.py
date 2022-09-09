@@ -1,14 +1,18 @@
+from datetime import datetime
 import os
 from collections import OrderedDict as OD
+import shutil
+import sys
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
-from functools import reduce
+from functools import partial, reduce
 import typing
 import warnings
 import numpy as np
 import pandas as pd
 from inspect import signature, Signature
 import re
+from config_reader import ConfigReader
 
 from styles import *
 from optimizers import *
@@ -20,6 +24,7 @@ from constants_calculation import ln99
 
 
 class Fitter():
+    experiment = None
     experiment_optima = {'x': (None, None), 'y': (None, None)}
     scatterplots = OD()
     fits = OD()
@@ -36,20 +41,15 @@ class Fitter():
     names_to_curves = {curve.__name__: curve for curve in curves}
     modes = DE_leastsquares, NLS
 
-    categories_per_experiment = {}
-    fitters = {}
+    groups = {}
+    fitters = OD()
     paths = {}
 
     abbreviations = {
         'RMSE_normalized': 'Normalized error (RMSE/mean)',
         'time': {'yy': r'%y', 'mm': r'%m', 'dd': r'%d', 'yyyy': r'%Y', 'hour': r'%I', 'HOUR': r'%H', 'min': r'%M', 'XM': r'%p'} }
     
-    iterations = None
-    save_candidates = None
-    save_averaged = None
-    save_combined = None
-    zoom_settings = None
-    names = None
+    reader = None
 
     figure_box = None
 
@@ -341,7 +341,7 @@ class Fitter():
             self.ax = ax
             if color is not None: self.color = color
             if scatterplot is None and all(_ is not None for _ in (group, category, sample)):
-                scatterplot = self.scatterplots[group][category][sample]
+                scatterplot = Fitter.scatterplots[group][category][sample]
             self.scatterplot = scatterplot
             self.fits = fits
             if fits is not None: super().__init__(fits)
@@ -413,6 +413,54 @@ class Fitter():
         self.group_optima = {'x': (None, None), 'y': (None, None)}
         self.category_optima = {}
         self.sample_optima = {}
+    @classmethod
+    def configure(cls, root_path):
+        cls.paths['root_path'] = root_path
+        cls.setup_files(root_path)
+        data_path, config_path = cls.paths['data_path'], cls.paths['config_path']
+        reader = ConfigReader(config_path)
+        experiment = reader.selected_experiment
+        cls.reader, cls.experiment = reader, experiment
+        cls.names = {
+            'figure title base': reader.figure_name,
+            'group': {
+                'singular': reader.group_name,
+                'plural': reader.groups_name },
+            'category': {
+                'singular': reader.category_name,
+                'plural': reader.categories_name } }
+        assert reader.iterations.isdigit()
+        cls.iterations = int(reader.iterations)
+        cls.save_candidates = reader.save_candidates
+        cls.save_all_fits, cls.save_averaged, cls.save_combined = reader.save_all_fits, reader.save_averaged, reader.save_combined
+        cls.category_collections = reader.category_collections if hasattr(reader, 'category_collections') else {}
+        plt.rcParams['font.family'] = reader.font if hasattr(reader, 'font') else 'Arial'
+        cls.zoom_settings = reader.zoom_settings
+
+        output_filename_unformatted = partial(reader.output_filename.format)
+        current_time = datetime.now()
+        for abbreviation, meaning in Fitter.abbreviations['time'].items():
+            output_filename_unformatted = partial(output_filename_unformatted, **{abbreviation: current_time.strftime(meaning)})
+        output_filename_base = output_filename_unformatted()
+        
+        path_base = '{root_path}/Output/{name}{i}'
+        format_kwargs = {'root_path': root_path, 'name': output_filename_base, 'i': ''}
+        while os.path.isdir(path_base.format(**format_kwargs)):
+            format_kwargs['i'] = 2 if (i := format_kwargs['i']) == '' else (i + 1)
+        path_base = path_base.format(**format_kwargs)
+
+        input_copy = f'{path_base}/Input'
+        os.makedirs(input_copy)
+        shutil.copy2(data_path, input_copy)
+        shutil.copy2(config_path, input_copy)
+        
+        output_path_base = f'{path_base}/Output'
+        os.makedirs(output_path_base)
+        
+        cls.paths.update({'output_filename_base': output_filename_base, 'path_base': path_base, 'input_copy': input_copy, 'output_path_base': output_path_base })
+        cls.paths['groups'] = dict()
+
+        cls.groups.update(reader.read_data(data_path)[experiment])
     def setup(self):
         group = self.group
 
@@ -530,7 +578,7 @@ class Fitter():
         plt.savefig(f'{folder}/{filename}', dpi = 300)
         show_all(fits, False, **show_all_args)
     def capture_all(self, capture_args, filename_args, presetzoom_folder, autozoom_folder):
-        zoom_settings = Fitter.zoom_settings
+        zoom_settings = Fitter.reader.zoom_settings
         capture, get_capture_filename = self.capture, self.get_capture_filename
         for setting in zoom_settings:
             if setting == 'autozoom':
@@ -579,13 +627,12 @@ class Fitter():
                 capture_all(capture_args, filename_args, presetzoom_folder, autozoom_folder)
     
     def fit_diff_ev_least_sq(self, curve, bounds, x, y, category, sample, other_args, color = 'black', iterations = None):
-        iterations, save_candidates, group, fits, lines_xdata = self.iterations, self.save_candidates, self.group, self.fits, self.lines_xdata
+        save_candidates, group, fits, lines_xdata = self.save_candidates, self.group, self.fits, self.lines_xdata
+        if iterations is None: iterations = self.iterations
         ax = self.ax
         candidates_individual, winners_individual_paths = self.candidates_individual, self.winners_individual_paths
         capture_all, show_all = self.capture_all, self.show_all
         Fits, special_samples = Fitter.Fits, Fitter.special_samples
-        if iterations is None:
-            iterations = self.iterations
         
         
         fit_input = OD({ 'func': SSR, 'args': (x, y, curve), 'bounds': bounds, **other_args })
@@ -822,11 +869,13 @@ class Fitter():
             if old_max is None or new_max > old_max: replace_max = True
             optima[dimension] = (new_min if replace_min else old_min, new_max if replace_max else old_max)
     
-    @staticmethod
-    def prepare_fitters(categories, groups, reader):
-        experiment_optima, scatterplots, fits, fitters, paths = Fitter.experiment_optima, Fitter.scatterplots, Fitter.fits, Fitter.fitters, Fitter.paths
-        for group in groups:
-            fitter = Fitter(group)
+    @classmethod
+    def prepare_fitters(cls):
+        experiment_optima, scatterplots, fits, fitters, paths = cls.experiment_optima, cls.scatterplots, cls.fits, cls.fitters, cls.paths
+        groups = cls.groups
+        reader = cls.reader
+        for group, categories in groups.items():
+            fitter = cls(group)
             fitters[group] = fitter
 
             fig, ax = plt.subplots()
@@ -835,13 +884,12 @@ class Fitter():
             ax.set_title(f'{reader.figure_name}, {group}')
             fitter.figure.update({'figure': fig, 'axes': ax, 'number': fig.number})
 
-            groupcategories = categories[group]
-            time_dataframe = groupcategories.pop('independent_var_column')
+            time_dataframe = categories.pop('independent_var_column')
             fitter.time_dataframe = time_dataframe
-            fitter.categories = groupcategories
+            fitter.categories = categories
             group_optima = fitter.group_optima
 
-            data = groupcategories
+            data = categories
             time_values = time_dataframe.values
             averaged_samples = { category: data[category]['data'].mean(axis='columns').values for category in data }
             fitter.averaged_samples.update(averaged_samples)
@@ -852,7 +900,7 @@ class Fitter():
                     for sample_index, sample in enumerate(data[category]['data'].columns) })
                 for category in data }
             
-            CategoryConfig = Fitter.CategoryConfig
+            CategoryConfig = cls.CategoryConfig
             fitter.config_per_category = { category: CategoryConfig(group, category, data[category]['category_config'], reader) for category in data }
 
             fitter.x = {}
@@ -863,8 +911,8 @@ class Fitter():
 
             fits[group] = {}
             scatterplots[group] = {}
-            update_optima, curves, modes, end_default = Fitter.update_optima, Fitter.curves, Fitter.modes, Fitter.end_default
-            for category in groupcategories:
+            update_optima, curves, modes, end_default = cls.update_optima, cls.curves, cls.modes, cls.end_default
+            for category in categories:
                 fits[group][category] = {
                     mode: {
                         curve: {}
@@ -995,7 +1043,7 @@ class Fitter():
                 combined_paths = figure_paths(f'{path}/Combined samples')
                 return {'Averaged': averaged_paths, 'Combined': combined_paths}
             
-            output_path_base = Fitter.paths['output_path_base']
+            output_path_base = cls.paths['output_path_base']
             groupfolder_path = f'{output_path_base}/{group}'
             figures_path = f'{groupfolder_path}/Figures'
 
@@ -1003,7 +1051,7 @@ class Fitter():
             candidates_individual = figure_paths(f'{candidates_path}/Individual samples')
             candidates_special = special_paths(f'{candidates_path}/All samples')
 
-            winners_path = f'{figures_path}/Winners' if Fitter.save_candidates else figures_path
+            winners_path = f'{figures_path}/Winners' if cls.save_candidates else figures_path
             winners_individual_paths = figure_paths(f'{winners_path}/Individual samples')
             winners_special_paths = special_paths(f'{winners_path}/All samples')
             winners_all_paths = figure_paths(f'{winners_path}/All samples/All fits')
@@ -1038,3 +1086,14 @@ class Fitter():
                 found = True
         assert type(output_filepath) is str, f'No .{" or .".join(extensions)} files were found in {path}.'
         return output_filepath
+    @classmethod
+    def setup_files(cls, root_path):
+        get_files = cls.get_files
+        try:
+            executable_root = os.path.dirname(sys.executable)
+            input_path = f'{executable_root}/Input'
+            data_path, config_path = get_files(input_path, ('csv', 'xlsx')), get_files(input_path, 'md')
+        except:
+            input_path = f'{root_path}/Input'
+            data_path, config_path = get_files(input_path, ('csv', 'xlsx')), get_files(input_path, 'md')
+        cls.paths.update({'data_path': data_path, 'config_path': config_path})

@@ -9,7 +9,7 @@ class Timer(list):
         super().__init__()
     def format_time(self, time):
         return divmod(time, 60)
-    def save_time(self, description = None):
+    def save_time(self, description = None, ending = False):
         "Saves the current time. If a description is provided, a message will be printed."
         initial_time = self.initial_time
         format_time = self.format_time
@@ -18,7 +18,7 @@ class Timer(list):
         self.time = new_monotonic, new_perf_counter
         self.append((new_monotonic, new_perf_counter, description))
 
-        message = '\nBeginning'
+        message = '\nBeginning' if not ending else '\nEnding'
         if description is None: message += ' '
         else: message += f' {description} '
         formatted_time = format_time(new_perf_counter)

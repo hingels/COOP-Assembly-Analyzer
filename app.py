@@ -5,17 +5,12 @@ timer = Timer()
 from matplotlib import pyplot as plt
 
 from collections import OrderedDict as OD
-import datetime
-from functools import partial
-import sys
 import os
-import shutil
 import typing
 
 from optimizers import *
 from reports import GroupReport, CurveReports
 from fitter import Fitter
-from config_reader import ConfigReader
 from constants_calculation import smallest
 from styles import *
 
@@ -24,75 +19,17 @@ from Curves.logistic import *
 from Curves.exponential import *
 
 
-
 def main():
-    get_files = Fitter.get_files
-    def setup_files(root):
-        input_path = f'{root}/Input'
-        return input_path, get_files(input_path, ('csv', 'xlsx')), get_files(input_path, 'md')
-    try:
-        root = os.path.dirname(sys.executable)
-        input_path, data_path, config_path = setup_files(root)
-    except:
-        root = os.path.dirname(os.path.abspath(__file__))
-        input_path, data_path, config_path = setup_files(root)
-    reader = ConfigReader(config_path)
-    assert reader.iterations.isdigit()
-    iterations = int(reader.iterations)
-    names = {
-        'figure title base': reader.figure_name,
-        'group': {
-            'singular': reader.group_name,
-            'plural': reader.groups_name },
-        'category': {
-            'singular': reader.category_name,
-            'plural': reader.categories_name } }
-    save_candidates = reader.save_candidates
-    save_all_fits, save_averaged, save_combined = reader.save_all_fits, reader.save_averaged, reader.save_combined
-    experiment = reader.selected_experiment
-    category_collections = reader.category_collections if hasattr(reader, 'category_collections') else {}
-    plt.rcParams['font.family'] = reader.font if hasattr(reader, 'font') else 'Arial'
-    zoom_settings = reader.zoom_settings
+    my_path = os.path.realpath(__file__)
+    root_path = os.path.dirname(my_path)
+    Fitter.configure(root_path)
+    Fitter.prepare_fitters()
 
-    output_filename_unformatted = partial(reader.output_filename.format)
-    current_time = datetime.datetime.now()
-    for abbreviation, meaning in Fitter.abbreviations['time'].items():
-        output_filename_unformatted = partial(output_filename_unformatted, **{abbreviation: current_time.strftime(meaning)})
-    output_filename_base = output_filename_unformatted()
+    scatterplots, fitters = Fitter.scatterplots, Fitter.fitters
     
-    path_base = '{root}/Output/{name}{i}'
-    format_kwargs = {'root': root, 'name': output_filename_base, 'i': ''}
-    while os.path.isdir(path_base.format(**format_kwargs)):
-        format_kwargs['i'] = 2 if (i := format_kwargs['i']) == '' else (i + 1)
-    path_base = path_base.format(**format_kwargs)
-
-    input_copy = f'{path_base}/Input'
-    os.makedirs(input_copy)
-    shutil.copy2(data_path, input_copy)
-    shutil.copy2(config_path, input_copy)
-    
-    output_path_base = f'{path_base}/Output'
-    os.makedirs(output_path_base)
-    
-    paths, categories_per_experiment, scatterplots, fitters = Fitter.paths, Fitter.categories_per_experiment, Fitter.scatterplots, Fitter.fitters
-    prepare_fitters = Fitter.prepare_fitters
-    
-    paths.update({'root': root, 'input_path': input_path, 'data_path': data_path, 'config_path': config_path, 'output_filename_base': output_filename_base, 'path_base': path_base, 'input_copy': input_copy, 'output_path_base': output_path_base })
-    paths['groups'] = dict()
-
-    categories_per_experiment.update(reader.read_data(data_path))
-    groups = categories_per_experiment[experiment].keys()
-
-    for key, value in { 'iterations': iterations, 'save_candidates': save_candidates, 'save_averaged': save_averaged, 'save_combined': save_combined, 'zoom_settings': zoom_settings, 'names': names }.items():
-        setattr(Fitter, key, value)
-    setattr(Fitter.Fits, 'scatterplots', scatterplots)
-    
-    prepare_fitters(categories_per_experiment[experiment], groups, reader)
-    
-    for group in groups:
+    for group, fitter in fitters.items():
         print(f'\n\nGROUP {group}\n')
         
-        fitter = fitters[group]
         fitter.setup()
         
         ax = fitter.figure['axes']
@@ -171,23 +108,24 @@ def main():
                 fit_diff_ev_least_sq(curve = normalized_exponential, bounds = ((smallest, upperbound), (smallest, y_max)), other_args = {'maxiter': 1000}, **fitting_info)
                 fit_diff_ev_least_sq(curve = onepercent_anchored_logistic, bounds = ((smallest, upperbound), (smallest, 10000)), other_args = {'maxiter': 1000}, **fitting_info)
 
-            if save_all_fits: fitter.capture_all_fits(category)
+            if fitter.save_all_fits: fitter.capture_all_fits(category)
             
-        fitter.capture_all_averages(data, category_collections)
+        fitter.capture_all_averages(data, fitter.category_collections)
 
         GroupReport(fitter).report()
 
     timer.save_time('curve report generation')
     
-    CurveReports(reader, fitters).report()
+    CurveReports(Fitter.reader, fitters).report()
     
-    timer.save_time()
+    timer.save_time(ending = True)
     perf_time, monotonic_time = timer.time
     elapsed_perf_counter, elapsed_monotonic = timer.format_time(perf_time), timer.format_time(monotonic_time)
+    output_path_base = Fitter.paths['output_path_base']
     with open(f'{output_path_base}/Notes.md', mode = 'w') as readme:
         readme.write('\n'.join((
             "Notes:",
-            f"- {iterations} iterations were used to generate this output.",
+            f"- {Fitter.iterations} iterations were used to generate this output.",
             "- Run time:",
             f"\t- Measured by time.monotonic(): {int(elapsed_monotonic[0])} minute(s) and {elapsed_monotonic[1]} seconds.",
             f"\t- Measured by time.perf_counter(): {int(elapsed_perf_counter[0])} minute(s) and {elapsed_perf_counter[1]} seconds.") ))
