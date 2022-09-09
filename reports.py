@@ -1,17 +1,22 @@
+import os
 import pandas as pd
 import datetime
 from inspect import signature
+from collections import OrderedDict as OD
+import numpy as np
 
-from global_functions import *
+from fitter import Fitter
+from optimizers import *
 from constants_calculation import get_constants
 
 class GroupReport():
-    def __init__(self, desk):
-        self.desk = desk
-        self.group, self.categories, self.groupfolder_path = desk.group, desk.categories, desk.groupfolder_path
+    def __init__(self, fitter):
+        self.fitter = fitter
+        self.group, self.categories, self.groupfolder_path = fitter.group, fitter.categories, fitter.groupfolder_path
     
     def sheet(self, minimal = False):
         group, categories = self.group, self.categories
+        curves, fits, modes = Fitter.curves, Fitter.fits, Fitter.modes
         def make_body(group, mode, minimal = False):
             for curve in curves:
                 group_fits = fits[group]
@@ -60,7 +65,7 @@ class GroupReport():
             yield top, body
 
     def report(self):
-        desk, group, groupfolder_path = self.desk, self.group, self.groupfolder_path
+        fitter, group, groupfolder_path = self.fitter, self.group, self.groupfolder_path
         sheet = self.sheet
         with pd.ExcelWriter(f'{groupfolder_path}/{group} report.xlsx', engine = 'xlsxwriter') as writer:
             for name, (top, body) in zip(('Differential evolution (DE)', 'Nonlinear least squares (NLS)', 'Minimal DE', 'Minimal NLS'), (*sheet(), *sheet(minimal = True))):
@@ -114,10 +119,10 @@ class GroupReport():
                             main_format if column_index == 0 else top_format )
 
 class CurveReports():
-    def __init__(self, reader, desks):
+    def __init__(self, reader, fitters):
         self.reader = reader
-        self.desks = desks
-        paths = Desk.paths
+        self.fitters = fitters
+        paths = Fitter.paths
         self.data_path, self.config_path = paths['data_path'], paths['config_path']
         self.folder = paths['output_path_base']
 
@@ -147,6 +152,7 @@ class CurveReports():
     def get_curve_reports(self):
         reader = self.reader
         get_info_rows = self.get_info_rows
+        names_to_curves = Fitter.names_to_curves
         for report in reader.reports.values():
             yield OD({
                 'curve': names_to_curves[report['curve']],
@@ -160,6 +166,7 @@ class CurveReports():
     def report(self):
         folder = self.folder
         curve_reports = self.get_curve_reports()
+        modes, fitters, fits, abbreviations, special_samples = Fitter.modes, Fitter.fitters, Fitter.fits, Fitter.abbreviations, Fitter.special_samples
         for report_args in curve_reports:
             variable_names, curve = report_args['variable_names'], report_args['curve']
             report_args['variable_names'] = ('RMSE_normalized', *variable_names)
@@ -171,7 +178,7 @@ class CurveReports():
                         if mode not in sheets:
                             sheets[mode] = list()
                         sheet = sheets[mode]
-                        for group, desk in desks.items():
+                        for group, fitter in fitters.items():
                             def group_section(curve, variable_names, average = True, info = None):
                                 styles = curve.styles
                                 variable_titles = tuple(

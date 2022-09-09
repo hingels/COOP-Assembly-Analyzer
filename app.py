@@ -2,6 +2,8 @@ is_main = True if __name__ == '__main__' else False
 from timer import Timer
 timer = Timer()
 
+from matplotlib import pyplot as plt
+
 from collections import OrderedDict as OD
 import datetime
 from functools import partial
@@ -11,22 +13,20 @@ import shutil
 import typing
 
 from optimizers import *
-from fits import Fits
 from reports import GroupReport, CurveReports
-from desk import Desk
+from fitter import Fitter
 from config_reader import ConfigReader
-from global_info import *
-from global_functions import *
 from constants_calculation import smallest
 from styles import *
 
-from KWW import *
-from logistic import *
-from exponential import *
+from Curves.KWW import *
+from Curves.logistic import *
+from Curves.exponential import *
 
 
 
 def main():
+    get_files = Fitter.get_files
     def setup_files(root):
         input_path = f'{root}/Input'
         return input_path, get_files(input_path, ('csv', 'xlsx')), get_files(input_path, 'md')
@@ -56,7 +56,7 @@ def main():
 
     output_filename_unformatted = partial(reader.output_filename.format)
     current_time = datetime.datetime.now()
-    for abbreviation, meaning in abbreviations['time'].items():
+    for abbreviation, meaning in Fitter.abbreviations['time'].items():
         output_filename_unformatted = partial(output_filename_unformatted, **{abbreviation: current_time.strftime(meaning)})
     output_filename_base = output_filename_unformatted()
     
@@ -74,33 +74,36 @@ def main():
     output_path_base = f'{path_base}/Output'
     os.makedirs(output_path_base)
     
+    paths, categories_per_experiment, scatterplots, fitters = Fitter.paths, Fitter.categories_per_experiment, Fitter.scatterplots, Fitter.fitters
+    prepare_fitters = Fitter.prepare_fitters
+    
     paths.update({'root': root, 'input_path': input_path, 'data_path': data_path, 'config_path': config_path, 'output_filename_base': output_filename_base, 'path_base': path_base, 'input_copy': input_copy, 'output_path_base': output_path_base })
     paths['groups'] = dict()
 
     categories_per_experiment.update(reader.read_data(data_path))
     groups = categories_per_experiment[experiment].keys()
 
-    for key, value in { 'iterations': iterations, 'save_candidates': save_candidates, 'save_averaged': save_averaged, 'save_combined': save_combined, 'zoom_settings': zoom_settings, 'groups': groups, 'fits': fits, 'names': names, 'scatterplots': scatterplots, 'paths': paths, 'desks': desks }.items():
-        setattr(Desk, key, value)
-    setattr(Fits, 'scatterplots', scatterplots)
+    for key, value in { 'iterations': iterations, 'save_candidates': save_candidates, 'save_averaged': save_averaged, 'save_combined': save_combined, 'zoom_settings': zoom_settings, 'names': names }.items():
+        setattr(Fitter, key, value)
+    setattr(Fitter.Fits, 'scatterplots', scatterplots)
     
-    prepare_groups(experiment, groups, reader)
+    prepare_fitters(categories_per_experiment[experiment], groups, reader)
     
     for group in groups:
         print(f'\n\nGROUP {group}\n')
         
-        desk = desks[group]
-        desk.setup()
+        fitter = fitters[group]
+        fitter.setup()
         
-        ax = desk.figure['axes']
+        ax = fitter.figure['axes']
 
-        data, config_per_category, samples, averaged_samples, fit_diff_ev_least_sq, set_legend = desk.categories, desk.config_per_category, desk.samples, desk.averaged_samples, desk.fit_diff_ev_least_sq, desk.set_legend
-        show_scatterplot = Desk.show_scatterplot
+        data, config_per_category, samples, averaged_samples, fit_diff_ev_least_sq, set_legend = fitter.categories, fitter.config_per_category, fitter.samples, fitter.averaged_samples, fitter.fit_diff_ev_least_sq, fitter.set_legend
+        show_scatterplot = Fitter.show_scatterplot
 
         ascending_order = [ (averaged_samples[category].max(), category) for category in data ]; ascending_order.sort()
         colors = { category: f'C{index}' for index, (_, category) in enumerate(ascending_order) }
         
-        desk.errorbars_text = ax.text(1.01, 0.15, 'Error bars: standard deviation', fontsize = 'x-small', transform = ax.transAxes)
+        fitter.errorbars_text = ax.text(1.01, 0.15, 'Error bars: standard deviation', fontsize = 'x-small', transform = ax.transAxes)
         set_legend()
 
         styles_use, styles_ignore = {}, {}
@@ -114,8 +117,8 @@ def main():
                 if 'match' not in fill: translated['facecolors'] = fill
                 if 'match' != outline: translated['edgecolors'] = outline
                 substyle[category] = translated
-            if category not in desk.legend_categories:
-                desk.legend_categories[category] = plt.scatter(**no_data, **styles_use[category])
+            if category not in fitter.legend_categories:
+                fitter.legend_categories[category] = plt.scatter(**no_data, **styles_use[category])
 
         for index, category in enumerate(data):
             print(f'\n\nCATEGORY {category}, INDEX {index}\n')
@@ -124,8 +127,8 @@ def main():
             config = config_per_category[category]
             max_as_max = config.get_setting('max_as_max')
 
-            category_x = desk.x[category]
-            category_y = desk.y[category]
+            category_x = fitter.x[category]
+            category_y = fitter.y[category]
             
             category_samples = samples[category]
             category_scatterplots = scatterplots[group][category]
@@ -148,7 +151,7 @@ def main():
                     if len(x_ignore) != 0 else None )
                 pathcollections = {'use': pathcollections_use, 'ignore': pathcollections_ignore}
 
-                errorbars = desk.errorbars[category][sample]
+                errorbars = fitter.errorbars[category][sample]
                 errorbars_use, errorbars_ignore = errorbars['use'], errorbars['ignore']
                 
                 scatterplot = { 'pathcollections': pathcollections }
@@ -168,15 +171,15 @@ def main():
                 fit_diff_ev_least_sq(curve = normalized_exponential, bounds = ((smallest, upperbound), (smallest, y_max)), other_args = {'maxiter': 1000}, **fitting_info)
                 fit_diff_ev_least_sq(curve = onepercent_anchored_logistic, bounds = ((smallest, upperbound), (smallest, 10000)), other_args = {'maxiter': 1000}, **fitting_info)
 
-            if save_all_fits: capture_all_fits(category, desk)
+            if save_all_fits: fitter.capture_all_fits(category)
             
-        capture_all_averages(desk, data, category_collections)
+        fitter.capture_all_averages(data, category_collections)
 
-        GroupReport(desk).report()
+        GroupReport(fitter).report()
 
     timer.save_time('curve report generation')
     
-    CurveReports(reader, desks).report()
+    CurveReports(reader, fitters).report()
     
     timer.save_time()
     perf_time, monotonic_time = timer.time
