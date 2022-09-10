@@ -26,7 +26,6 @@ from constants_calculation import ln99
 class Fitter():
     experiment = None
     experiment_optima = {'x': (None, None), 'y': (None, None)}
-    fits = OD()
 
     special_samples = {
         'Averaged': {
@@ -407,6 +406,7 @@ class Fitter():
 
     def __init__(self, group):
         self.group = group
+        self.fits = OD()
         self.scatterplots = OD()
         self.legend_handles_labels = OD()
         self.legend_categories = OD()
@@ -471,7 +471,30 @@ class Fitter():
             self.winners_all_paths = winners_paths['all']
         
         figure_info = self.figure
-        self.fig, self.ax, self.fig_number = figure_info['figure'], figure_info['axes'], figure_info['number']
+        ax = figure_info['axes']
+        self.fig, self.ax, self.fig_number = figure_info['figure'], ax, figure_info['number']
+
+        self.errorbars_text = ax.text(1.01, 0.15, 'Error bars: standard deviation', fontsize = 'x-small', transform = ax.transAxes)
+        self.set_legend()
+
+        categories, legend_categories, averaged_samples = self.categories, self.legend_categories, self.averaged_samples
+        ascending_order = [ (averaged_samples[category].max(), category) for category in categories ]; ascending_order.sort()
+        colors = { category: f'C{index}' for index, (_, category) in enumerate(ascending_order) }
+        self.colors = colors
+        styles_use, styles_ignore = {}, {}
+        self.styles_use, self.styles_ignore = styles_use, styles_ignore
+        no_data = OD({ 'x': tuple(), 'y': tuple() })
+        style = scatter_styles['default']
+        for category in categories:
+            for substyle, instructions in ((styles_use, style['use']['style']), (styles_ignore, style['ignore']['style'])):
+                fill, outline = instructions['fill'], instructions['outline']
+                translated = { 'marker': instructions['shape'], 's': instructions['box_area'], 'color': colors[category] }
+                if 'hatch' in instructions: translated['hatch'] = instructions['hatch']
+                if 'match' not in fill: translated['facecolors'] = fill
+                if 'match' != outline: translated['edgecolors'] = outline
+                substyle[category] = translated
+            if category not in legend_categories:
+                legend_categories[category] = plt.scatter(**no_data, **styles_use[category])
     @staticmethod
     def show(line, visible = True, /, linestyle = None, marks_visible = True):
         if not visible: marks_visible = False
@@ -527,6 +550,37 @@ class Fitter():
                 if fit_scatterplot['pathcollections']['ignore'] is not None: show_ignored = True
                 show_scatterplot(fit_scatterplot)
         if marks_visible: show_marks_on_legend(curve, legend_visible = legend_visible, errorbars_visible = errorbars_visible, categories = categories, show_ignored = show_ignored)
+    def plot_sample(self, category, sample):
+        styles_use, styles_ignore, colors = self.styles_use, self.styles_ignore, self.colors
+
+        color = colors[category]
+
+        x = self.x[category][sample]
+        x_use, x_ignore = x['use'], x['ignore']
+        
+        y = self.y[category][sample]
+        y_use, y_ignore = y['use'], y['ignore']
+
+        data_use, data_ignore = { 'x': x_use, 'y': y_use }, { 'x': x_ignore, 'y': y_ignore }
+        pathcollections_use = plt.scatter(**data_use, zorder = 2.5, **styles_use[category])
+        pathcollections_ignore = (
+            plt.scatter(**data_ignore, zorder = 2.5, **styles_ignore[category])
+            if len(x_ignore) != 0 else None )
+        pathcollections = {'use': pathcollections_use, 'ignore': pathcollections_ignore}
+
+        errorbars = self.errorbars[category][sample]
+        errorbars_use, errorbars_ignore = errorbars['use'], errorbars['ignore']
+        
+        scatterplot = { 'pathcollections': pathcollections }
+        self.scatterplots[category][sample] = scatterplot
+        if sample == 'Averaged':
+            errorbarcontainers_use = plt.errorbar(x_use, y_use, errorbars_use, fmt = 'None', color = color, capsize = 2, zorder = 0)
+            errorbarcontainers_ignore = (
+                plt.errorbar(x_ignore, y_ignore, errorbars_ignore, fmt = 'None', color = color, capsize = 2, zorder = 0)
+                if len(errorbars_ignore) != 0 else None )
+            errorbarcontainers = (errorbarcontainers_use, errorbarcontainers_ignore) if errorbarcontainers_ignore is not None else (errorbarcontainers_use,)
+            scatterplot['errorbarcontainers'] = errorbarcontainers
+        self.show_scatterplot(scatterplot, False)
     
     def get_capture_filename(self, curve, category = None, sample = None, special = False, autozoom = False, lens = 1, all_fits = False, all_categories = False):
         out = []
@@ -585,9 +639,9 @@ class Fitter():
                     lens = float(lens)
                     capture(lens = lens, folder = presetzoom_folder, filename = get_capture_filename(lens = lens, **filename_args), **capture_args)
     def capture_all_fits(self, category):
-        group, ax, category_samples, winners_all_paths, capture_all = self.group, self.ax, self.samples[category], self.winners_all_paths, self.capture_all
-        Fits, curves, special_samples, fits = Fitter.Fits, Fitter.curves, Fitter.special_samples, Fitter.fits
-        DE_leastsquares_fits = fits[group][category][DE_leastsquares]
+        fits, ax, category_samples, winners_all_paths, capture_all = self.fits, self.ax, self.samples[category], self.winners_all_paths, self.capture_all
+        Fits, curves, special_samples = Fitter.Fits, Fitter.curves, Fitter.special_samples
+        DE_leastsquares_fits = fits[category][DE_leastsquares]
         for curve in curves:
             curve_fits = DE_leastsquares_fits[curve]
             all_winners = Fits(
@@ -602,13 +656,13 @@ class Fitter():
             
             capture_all(capture_args, filename_args, presetzoom_folder, autozoom_folder)
     def capture_all_averages(self, data, category_collections):
-        group, ax, winners_special_paths, capture_all = self.group, self.ax, self.winners_special_paths, self.capture_all
-        Fits, curves, fits = Fitter.Fits, Fitter.curves, Fitter.fits
+        fits, ax, winners_special_paths, capture_all = self.fits, self.ax, self.winners_special_paths, self.capture_all
+        Fits, curves = Fitter.Fits, Fitter.curves
         for curve in curves:
             for name, collection in ({'All': data} | category_collections).items():
                 all_averaged_samples = Fits(
                     self, mode = DE_leastsquares, curve = curve, ax = ax,
-                    fits = tuple(fits[group][category][DE_leastsquares][curve]['Averaged'] for category in data if category in collection) )
+                    fits = tuple(fits[category][DE_leastsquares][curve]['Averaged'] for category in data if category in collection) )
                 
                 filename_args = {'curve': curve, 'sample': 'Averaged', 'special': True}
                 capture_args = {'fits': all_averaged_samples, 'categories': collection, 'marks_visible': False, 'legend_visible': True, 'errorbars_visible': True, 'title_info': 'averaged'}
@@ -623,7 +677,7 @@ class Fitter():
                 capture_all(capture_args, filename_args, presetzoom_folder, autozoom_folder)
     
     def fit_diff_ev_least_sq(self, curve, bounds, x, y, category, sample, other_args, color = 'black', iterations = None):
-        group, fits, lines_xdata = self.group, self.fits, self.lines_xdata
+        fits, lines_xdata = self.fits, self.lines_xdata
         config = self.reader.config
         save_averaged, save_combined, save_candidates = config.save_averaged, config.save_combined, config.save_candidates
         if iterations is None: iterations = config.iterations
@@ -659,7 +713,7 @@ class Fitter():
         winner_fits, losers_fits = candidates.separate_winner()
 
         fit_output = candidates.winner
-        DE_leastsquares_fits = fits[group][category][DE_leastsquares]
+        DE_leastsquares_fits = fits[category][DE_leastsquares]
         DE_leastsquares_fits[curve][sample] = fit_output
 
         def delete_losers():
@@ -836,11 +890,9 @@ class Fitter():
             legend_handles_labels.update(new_legend_handles_labels)
         with warnings.catch_warnings(record=True):
             labels_handles = tuple(map(list, zip(*legend_handles_labels.items())))
-            if len(labels_handles) != 0:
-                labels, handles = labels_handles
-                legend = ax.legend(handles, labels, **default_legend_kwargs)
-            else:
-                legend = ax.legend(**default_legend_kwargs)
+            if len(labels_handles) == 0: return
+            labels, handles = labels_handles
+            legend = ax.legend(handles, labels, **default_legend_kwargs)
             legend.set_visible(visible)
             if hasattr(self, 'errorbars_text'): self.errorbars_text.set_visible(errorbars_visible)
             if visible: ax.set_position(figure_box)
@@ -869,7 +921,7 @@ class Fitter():
     
     @classmethod
     def prepare_fitters(cls):
-        experiment_optima, fits, fitters, paths = cls.experiment_optima, cls.fits, cls.fitters, cls.paths
+        experiment_optima, fitters, paths = cls.experiment_optima, cls.fitters, cls.paths
         groups = cls.groups
         reader = cls.reader
         config = reader.config
@@ -909,12 +961,12 @@ class Fitter():
             fitter.y = {}
             fitter.errorbars = {}
 
-            fits[group] = {}
+            fits = fitter.fits
             scatterplots = {}
             fitter.scatterplots = scatterplots
             update_optima, curves, modes, end_default = cls.update_optima, cls.curves, cls.modes, cls.end_default
             for category in categories:
-                fits[group][category] = {
+                fits[category] = {
                     mode: {
                         curve: {}
                         for curve in curves }

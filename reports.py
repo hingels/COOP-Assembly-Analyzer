@@ -15,23 +15,23 @@ class GroupReport():
         self.group, self.categories, self.groupfolder_path = fitter.group, fitter.categories, fitter.groupfolder_path
     
     def sheet(self, minimal = False):
-        group, categories = self.group, self.categories
-        curves, fits, modes = Fitter.curves, Fitter.fits, Fitter.modes
-        def make_body(group, mode, minimal = False):
+        fitter, categories = self.fitter, self.categories
+        fits = fitter.fits
+        curves, modes = Fitter.curves, Fitter.modes
+        def make_body(mode, minimal = False):
             for curve in curves:
-                group_fits = fits[group]
                 combined_categories = pd.concat(
                     pd.concat(
                         {f'{category}: {sample}': fit_output(minimal = minimal)},
                         names = ['Category', 'Variable or Output'] ) 
                     for category in categories
-                    for sample, fit_output in group_fits[category][mode][curve].items() )
+                    for sample, fit_output in fits[category][mode][curve].items() )
                 curve_label = f'{curve.title}\n\nFunction: {curve.__name__}{signature(curve)}:\n\nEquation: {curve.equation}'
                 yield pd.concat({ curve_label: combined_categories }, names = ['Curve'])
         
         for mode in modes:
             top_info = OD()
-            if all(len(samples) == 0 for category in fits[group] for samples in fits[group][category][mode].values()):
+            if all(len(samples) == 0 for category in fits for samples in fits[category][mode].values()):
                 yield None, None
                 continue
             if mode is DE_leastsquares and hasattr(mode, 'objective_function'):
@@ -61,7 +61,7 @@ class GroupReport():
                 np.array(
                     tuple((variable, value)
                     for variable, value in top_info.items()) ))
-            body = pd.concat(make_body(group, mode, minimal = minimal))
+            body = pd.concat(make_body(mode, minimal = minimal))
             yield top, body
 
     def report(self):
@@ -165,7 +165,7 @@ class CurveReports():
     def report(self):
         folder = self.folder
         curve_reports = self.get_curve_reports()
-        modes, fitters, fits, abbreviations, special_samples = Fitter.modes, Fitter.fitters, Fitter.fits, Fitter.abbreviations, Fitter.special_samples
+        modes, fitters, abbreviations, special_samples = Fitter.modes, Fitter.fitters, Fitter.abbreviations, Fitter.special_samples
         for report_args in curve_reports:
             variable_names, curve = report_args['variable_names'], report_args['curve']
             report_args['variable_names'] = ('RMSE_normalized', *variable_names)
@@ -187,8 +187,9 @@ class CurveReports():
                                         else variable_name )
                                     for variable_name in variable_names)
                                 def categories():
-                                    for category in fits[group]:
-                                        samples = fits[group][category][mode][curve]
+                                    fits = fitter.fits
+                                    for category in fits:
+                                        samples = fits[category][mode][curve]
                                         if len(samples) == 0: continue
                                         if average:
                                             samples_values = tuple(
